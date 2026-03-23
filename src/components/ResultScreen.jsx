@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { CREATURES } from '../data/creatures.js'
 import { TYPE_COLORS } from '../data/types.js'
-import { addWin, applyLevelUp, getAvailableNewMove, learnMove, skipMove, checkCreatureUnlock } from '../systems/progression.js'
+import { addWin, applyLevelUp, getAvailableNewMove, learnMove, skipMove } from '../systems/progression.js'
 import { advanceCampaign, trackPlayerTypes, applyRivalReward } from '../systems/campaignManager.js'
 import { getGymById, getRivalByZone } from '../data/campaign.js'
 import { getAllCreatures } from '../utils/customData.js'
@@ -90,22 +90,6 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
       results.push(creatureResult)
     }
 
-    // Random creature unlock (every 2nd total battle)
-    const unlockId = checkCreatureUnlock(updatedState.totalBattlesWon, updatedState.unlockedCreatureIds)
-    if (unlockId) {
-      updatedState.unlockedCreatureIds = [...updatedState.unlockedCreatureIds, unlockId]
-      const template = CREATURES[unlockId]
-      if (template) {
-        updatedState.creatureProgress[unlockId] = {
-          level: 1, wins: 0,
-          currentMoves: [template.movePool[0], template.movePool[1]],
-          learnedMoves: [template.movePool[0], template.movePool[1]],
-          movesOffered: 2,
-        }
-      }
-      setUnlockedCreature(unlockId)
-    }
-
     // Badge earned for gym leaders
     if (battleInfo?.type === 'leader' && !battleInfo.replay) {
       const gym = getGymById(battleInfo.gymId)
@@ -159,6 +143,38 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
       const rival = getRivalByZone(battleInfo.zoneId)
       if (rival) {
         updatedState = applyRivalReward(updatedState, rival.reward)
+
+        // Rival 1 and 2 also give a creature pick
+        const givesCreaturePick = battleInfo.zoneId === 'zone1' || battleInfo.zoneId === 'zone2'
+        if (givesCreaturePick) {
+          const lockedCreatures = Object.keys(CREATURES).filter(id => !updatedState.unlockedCreatureIds.includes(id))
+          if (lockedCreatures.length > 0 && onShowCreaturePick) {
+            const pickPool = lockedCreatures.sort(() => Math.random() - 0.5).slice(0, Math.min(3, lockedCreatures.length))
+            const rivalName = gameState.campaign?.rivalName || 'Rival'
+            setTimeout(() => {
+              onShowCreaturePick({
+                creatureIds: pickPool,
+                title: `${rivalName} grudgingly acknowledges your strength!`,
+                onPick: (pickedId) => {
+                  onUpdateGameState(prev => {
+                    const next = { ...prev, unlockedCreatureIds: [...prev.unlockedCreatureIds, pickedId] }
+                    const template = CREATURES[pickedId]
+                    if (template) {
+                      next.creatureProgress = { ...next.creatureProgress }
+                      next.creatureProgress[pickedId] = {
+                        level: 1, wins: 0,
+                        currentMoves: [template.movePool[0], template.movePool[1]],
+                        learnedMoves: [template.movePool[0], template.movePool[1]],
+                        movesOffered: 2,
+                      }
+                    }
+                    return next
+                  })
+                },
+              })
+            }, 1800) // After dialogue + reward splash
+          }
+        }
 
         // Post-battle dialogue
         if (battleInfo.postDefeatDialogue && onShowDialogue) {

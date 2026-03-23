@@ -4,7 +4,7 @@ export { aiPickMove, aiShouldSwitch, aiBuildTeam } from './ai.js'
 export {
   createCreatureSaveState, addWin, checkLevelUp, applyLevelUp,
   getAvailableNewMove, learnMove, skipMove,
-  checkCreatureUnlock, getStartingCreatures,
+  getStartingCreatures,
 } from './progression.js'
 export {
   createBattleCreature, determineTurnOrder, executeTurn,

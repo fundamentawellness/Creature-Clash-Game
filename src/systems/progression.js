@@ -116,28 +116,7 @@ export function skipMove(creatureState) {
   return { ...creatureState, movesOffered: creatureState.movesOffered + 1 }
 }
 
-/**
- * Check if a new creature should be unlocked based on total battles won.
- * Every 2nd battle won = 1 new creature.
- *
- * @param {number} totalBattlesWon — total across all battles
- * @param {string[]} unlockedIds — currently unlocked creature IDs
- * @returns {string|null} creature ID to unlock, or null
- */
-export function checkCreatureUnlock(totalBattlesWon, unlockedIds) {
-  // Unlock every 2 wins
-  const expectedUnlocks = Math.floor(totalBattlesWon / 2)
-  const currentExtra = unlockedIds.length - 10 // Started with 10
-
-  if (currentExtra >= expectedUnlocks) return null
-  if (unlockedIds.length >= CREATURE_LIST.length) return null
-
-  // Pick a random locked creature
-  const locked = CREATURE_LIST.filter(c => !unlockedIds.includes(c.id))
-  if (locked.length === 0) return null
-
-  return locked[Math.floor(Math.random() * locked.length)].id
-}
+// checkCreatureUnlock removed — creatures now only unlock from gym leaders and rival 1/2 victories
 
 /**
  * Get the starting 10 creatures for a new game.
