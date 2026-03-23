@@ -352,66 +352,77 @@ export class BattleScene extends Phaser.Scene {
     if (!creature || creature.fainted) return
 
     const moves = creature.currentMoves.map(id => MOVES[id]).filter(Boolean)
-    const btnW = 175
-    const btnH = 48
-    const gap = 8
-    const totalW = moves.length * btnW + (moves.length - 1) * gap
-    const startX = (W - totalW) / 2
-    const btnY = H - 75
+
+    // 2x2 grid layout for moves + full-width switch button below
+    const cols = 2
+    const rows = Math.ceil(moves.length / cols)
+    const btnW = 185
+    const btnH = 42
+    const gapX = 6
+    const gapY = 4
+    const gridW = cols * btnW + (cols - 1) * gapX
+    const gridH = rows * btnH + (rows - 1) * gapY
+    const startX = (W - gridW) / 2
+    const switchH = 28
+    const switchGap = 4
+    const totalPanelH = gridH + switchGap + switchH
+    const panelY = H - totalPanelH - 12
+    const btnY = panelY
 
     // Background panel
     const panelBg = this.add.graphics()
     panelBg.fillStyle(0x0f172a, 0.95)
-    panelBg.fillRoundedRect(startX - 12, btnY - 8, totalW + 24, btnH + 16, 8)
+    panelBg.fillRoundedRect(startX - 10, panelY - 6, gridW + 20, totalPanelH + 12, 8)
     panelBg.lineStyle(1, 0x334155, 0.6)
-    panelBg.strokeRoundedRect(startX - 12, btnY - 8, totalW + 24, btnH + 16, 8)
+    panelBg.strokeRoundedRect(startX - 10, panelY - 6, gridW + 20, totalPanelH + 12, 8)
     this.moveButtonContainer.add(panelBg)
 
     moves.forEach((move, i) => {
-      const x = startX + i * (btnW + gap)
+      const col = i % cols
+      const row = Math.floor(i / cols)
+      const x = startX + col * (btnW + gapX)
+      const y = btnY + row * (btnH + gapY)
       const colors = TYPE_COLORS[move.type]
       const bgColor = hexToNum(colors?.dark || '#334155')
       const borderColor = hexToNum(colors?.accent || '#94a3b8')
 
       const btn = this.add.graphics()
       btn.fillStyle(bgColor, 0.9)
-      btn.fillRoundedRect(x, btnY, btnW, btnH, 6)
+      btn.fillRoundedRect(x, y, btnW, btnH, 5)
       btn.lineStyle(1.5, borderColor, 0.7)
-      btn.strokeRoundedRect(x, btnY, btnW, btnH, 6)
+      btn.strokeRoundedRect(x, y, btnW, btnH, 5)
 
-      const nameText = this.add.text(x + 8, btnY + 5, move.name, {
-        fontSize: '13px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: colors?.light || '#e2e8f0',
+      const nameText = this.add.text(x + 8, y + 3, move.name, {
+        fontSize: '12px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: colors?.light || '#e2e8f0',
       })
 
       let detailStr = move.category === 'status' ? 'STATUS' : `PWR ${move.power}  ACC ${move.accuracy}%`
       const catStr = move.category.charAt(0).toUpperCase() + move.category.slice(1, 4)
-      const detailText = this.add.text(x + 8, btnY + 24, `${detailStr}  ${catStr}`, {
-        fontSize: '10px', fontFamily: 'Rajdhani', color: '#94a3b8',
+      const detailText = this.add.text(x + 8, y + 20, `${detailStr}  ${catStr}`, {
+        fontSize: '9px', fontFamily: 'Rajdhani', color: '#94a3b8',
       })
 
-      // STAB indicator
       if (move.type === creature.type) {
-        const stabText = this.add.text(x + btnW - 35, btnY + 6, 'STAB', {
-          fontSize: '9px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: '#fbbf24',
+        const stabText = this.add.text(x + btnW - 35, y + 4, 'STAB', {
+          fontSize: '8px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: '#fbbf24',
         })
         this.moveButtonContainer.add(stabText)
       }
 
-      // Hit zone
-      const hitZone = this.add.zone(x + btnW / 2, btnY + btnH / 2, btnW, btnH).setInteractive({ useHandCursor: true })
+      const hitZone = this.add.zone(x + btnW / 2, y + btnH / 2, btnW, btnH).setInteractive({ useHandCursor: true })
       hitZone.on('pointerover', () => {
         btn.clear()
         btn.fillStyle(bgColor, 1)
-        btn.fillRoundedRect(x, btnY, btnW, btnH, 6)
+        btn.fillRoundedRect(x, y, btnW, btnH, 5)
         btn.lineStyle(2, borderColor, 1)
-        btn.strokeRoundedRect(x, btnY, btnW, btnH, 6)
+        btn.strokeRoundedRect(x, y, btnW, btnH, 5)
       })
       hitZone.on('pointerout', () => {
         btn.clear()
         btn.fillStyle(bgColor, 0.9)
-        btn.fillRoundedRect(x, btnY, btnW, btnH, 6)
+        btn.fillRoundedRect(x, y, btnW, btnH, 5)
         btn.lineStyle(1.5, borderColor, 0.7)
-        btn.strokeRoundedRect(x, btnY, btnW, btnH, 6)
+        btn.strokeRoundedRect(x, y, btnW, btnH, 5)
       })
       hitZone.on('pointerdown', () => {
         if (!this.awaitingInput) return
@@ -422,21 +433,35 @@ export class BattleScene extends Phaser.Scene {
       this.moveButtonContainer.add([btn, nameText, detailText, hitZone])
     })
 
-    // Switch button
-    const switchX = startX + totalW + gap + 12
-    const switchW = 70
-    if (switchX + switchW < W - 10) {
+    // Switch button — full width below move grid, only if bench creatures exist
+    const hasSwitch = this.playerTeam.some((c, i) => i !== this.playerActiveIdx && !c.fainted)
+    if (hasSwitch) {
+      const switchY = btnY + gridH + switchGap
       const switchBg = this.add.graphics()
-      switchBg.fillStyle(0x334155, 0.9)
-      switchBg.fillRoundedRect(switchX, btnY, switchW, btnH, 6)
-      switchBg.lineStyle(1, 0x4a5568, 0.7)
-      switchBg.strokeRoundedRect(switchX, btnY, switchW, btnH, 6)
+      switchBg.fillStyle(0x1e293b, 0.9)
+      switchBg.fillRoundedRect(startX, switchY, gridW, switchH, 4)
+      switchBg.lineStyle(1, 0x475569, 0.6)
+      switchBg.strokeRoundedRect(startX, switchY, gridW, switchH, 4)
 
-      const switchText = this.add.text(switchX + 10, btnY + 14, 'SWITCH', {
-        fontSize: '12px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: '#94a3b8',
+      const switchText = this.add.text(W / 2, switchY + switchH / 2, '\u21C4  SWITCH CREATURE', {
+        fontSize: '11px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: '#94a3b8',
+      }).setOrigin(0.5)
+
+      const switchZone = this.add.zone(W / 2, switchY + switchH / 2, gridW, switchH).setInteractive({ useHandCursor: true })
+      switchZone.on('pointerover', () => {
+        switchBg.clear()
+        switchBg.fillStyle(0x334155, 1)
+        switchBg.fillRoundedRect(startX, switchY, gridW, switchH, 4)
+        switchBg.lineStyle(1, 0x64748b, 0.8)
+        switchBg.strokeRoundedRect(startX, switchY, gridW, switchH, 4)
       })
-
-      const switchZone = this.add.zone(switchX + switchW / 2, btnY + btnH / 2, switchW, btnH).setInteractive({ useHandCursor: true })
+      switchZone.on('pointerout', () => {
+        switchBg.clear()
+        switchBg.fillStyle(0x1e293b, 0.9)
+        switchBg.fillRoundedRect(startX, switchY, gridW, switchH, 4)
+        switchBg.lineStyle(1, 0x475569, 0.6)
+        switchBg.strokeRoundedRect(startX, switchY, gridW, switchH, 4)
+      })
       switchZone.on('pointerdown', () => {
         if (!this.awaitingInput) return
         this.showSwitchPanel()

@@ -54,7 +54,7 @@ export function checkLevelUp(creatureState) {
 }
 
 /**
- * Apply level up — increment level, stats go up by +2 each on recalc.
+ * Apply level up — increment level. Stats scale by 8% of base per level on recalc.
  * Returns new state with updated level.
  */
 export function applyLevelUp(creatureState) {

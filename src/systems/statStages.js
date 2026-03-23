@@ -45,7 +45,9 @@ export function applyStatStage(creature, stat, stages) {
 export function getEffectiveStat(creature, statName) {
   const base = creature.baseStats[statName]
   const level = creature.level || 1
-  const levelBonus = (level - 1) * 2
+  // 8% of base per level, minimum +1 per level
+  const perLevel = Math.max(1, Math.floor(base * 0.08))
+  const levelBonus = (level - 1) * perLevel
 
   // HP is not affected by stat stages
   if (statName === 'hp') {
