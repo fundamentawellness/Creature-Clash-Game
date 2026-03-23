@@ -10,6 +10,8 @@ import NameEntryScreen from './components/NameEntryScreen.jsx'
 import CampaignMapScreen from './components/CampaignMapScreen.jsx'
 import BadgeCollectionScreen from './components/BadgeCollectionScreen.jsx'
 import DialogueOverlay from './components/DialogueOverlay.jsx'
+import { getCurrentBattle } from './systems/campaignManager.js'
+import { getGymById, getZoneById } from './data/campaign.js'
 import MoveTutorScreen from './components/MoveTutorScreen.jsx'
 import CreaturePickModal from './components/CreaturePickModal.jsx'
 
@@ -169,9 +171,100 @@ function App() {
 
   const handleBattleAgain = useCallback(() => {
     setBattleResult(null)
+
+    // Get the next battle from the updated campaign state
+    const campaign = gameState?.campaign
+    if (!campaign) {
+      transitionTo('campaignMap')
+      return
+    }
+
+    const next = getCurrentBattle(campaign)
+    console.log('[handleBattleAgain] next battle:', next)
+
+    if (!next) {
+      // Campaign complete or no next battle
+      transitionTo('campaignMap')
+      return
+    }
+
+    // Build the battleInfo for the next fight
+    let battleInfo = null
+
+    if (next.type === 'trainer' && next.gymId) {
+      const gym = getGymById(next.gymId)
+      const zone = getZoneById(next.zoneId)
+      if (gym && zone) {
+        const trainer = gym.trainers[next.trainerIndex]
+        battleInfo = {
+          type: 'trainer', gymId: next.gymId, trainerIndex: next.trainerIndex, zoneId: next.zoneId,
+          aiConfig: zone.aiConfig,
+          aiTeamSpec: trainer.creatures,
+          aiTeamSize: trainer.teamSize || 3,
+          trainerName: trainer.title,
+        }
+      }
+    } else if (next.type === 'leader' && next.gymId) {
+      const gym = getGymById(next.gymId)
+      const zone = getZoneById(next.zoneId)
+      if (gym && zone) {
+        battleInfo = {
+          type: 'leader', gymId: next.gymId, trainerIndex: -1, zoneId: next.zoneId,
+          aiConfig: zone.leaderAiConfig,
+          aiTeamSpec: gym.leader.creatures,
+          aiTeamSize: gym.leader.teamSize,
+          leaderName: gym.leader.name,
+          preBattleDialogue: gym.leader.preBattleDialogue,
+          postDefeatDialogue: gym.leader.postDefeatDialogue,
+          badgeName: gym.badge?.name,
+          badgeIcon: gym.badge?.icon,
+        }
+      }
+    } else if (next.type === 'rival') {
+      const zone = getZoneById(next.zoneId)
+      if (zone) {
+        const rival = zone.rival
+        const rivalName = campaign.rivalName || 'Rival'
+        battleInfo = {
+          type: 'rival', gymId: null, zoneId: next.zoneId,
+          aiConfig: rival.aiConfig,
+          aiTeamSpec: null,
+          aiTeamSize: rival.teamSize,
+          rivalLevel: rival.level,
+          preBattleDialogue: rival.preBattleDialogue?.replace(/\[Rival name\]/g, rivalName),
+          postDefeatDialogue: rival.postDefeatDialogue?.replace(/\[Rival name\]/g, rivalName),
+          reward: rival.reward,
+          rewardTitle: rival.rewardTitle,
+          rewardDescription: rival.rewardDescription,
+        }
+      }
+    }
+
+    if (!battleInfo) {
+      transitionTo('campaignMap')
+      return
+    }
+
+    setCurrentBattleInfo(battleInfo)
     setBattleKey(k => k + 1)
-    transitionTo('battle')
-  }, [transitionTo])
+
+    // Show pre-battle dialogue for leaders/rivals
+    if (battleInfo.preBattleDialogue) {
+      const speaker = battleInfo.type === 'rival'
+        ? (campaign.rivalName || 'Rival')
+        : (battleInfo.leaderName || 'Leader')
+      setDialogue({
+        speakerName: speaker,
+        text: battleInfo.preBattleDialogue,
+        onDismiss: () => {
+          setDialogue(null)
+          transitionTo('battle')
+        },
+      })
+    } else {
+      transitionTo('battle')
+    }
+  }, [transitionTo, gameState])
 
   // ===== GAME STATE UPDATE =====
 

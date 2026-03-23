@@ -320,12 +320,12 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
 
       {/* Action buttons */}
       <div className="flex flex-col sm:flex-row gap-3 mt-8 slide-up" style={{ animationDelay: '0.4s' }}>
-        {won && (
+        {won && battleInfo?.type === 'trainer' && !battleInfo?.replay && (
           <button onClick={onBattleAgain}
             className="px-8 py-3 rounded-xl font-ui font-bold text-base uppercase tracking-wider
               bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400
               border border-emerald-400/30 transition-all cursor-pointer">
-            {battleInfo?.type === 'rival' ? 'Continue' : 'Next Battle'}
+            Next Battle
           </button>
         )}
         <button onClick={onChangeTeam}
