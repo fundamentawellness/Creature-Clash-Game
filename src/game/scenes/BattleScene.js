@@ -51,6 +51,7 @@ export class BattleScene extends Phaser.Scene {
     this.playerActiveIdx = 0
     this.aiActiveIdx = 0
     this.isAnimating = false
+    this.awaitingInput = false  // true only when move buttons are showing and player can act
     this.battleOver = false
     this.logLines = []
   }
@@ -338,6 +339,13 @@ export class BattleScene extends Phaser.Scene {
 
   showMoveButtons() {
     if (this.battleOver || this.isAnimating) return
+
+    // Clean up any lingering panels
+    if (this._forceSwitchPanel) {
+      this._forceSwitchPanel.destroy(true)
+      this._forceSwitchPanel = null
+    }
+
     this.moveButtonContainer.removeAll(true)
 
     const creature = this.getPlayerCreature()
@@ -406,7 +414,7 @@ export class BattleScene extends Phaser.Scene {
         btn.strokeRoundedRect(x, btnY, btnW, btnH, 6)
       })
       hitZone.on('pointerdown', () => {
-        if (this.isAnimating) return
+        if (!this.awaitingInput) return
         this.hideMoveButtons()
         this.onPlayerAction({ type: 'attack', moveId: move.id })
       })
@@ -430,7 +438,7 @@ export class BattleScene extends Phaser.Scene {
 
       const switchZone = this.add.zone(switchX + switchW / 2, btnY + btnH / 2, switchW, btnH).setInteractive({ useHandCursor: true })
       switchZone.on('pointerdown', () => {
-        if (this.isAnimating) return
+        if (!this.awaitingInput) return
         this.showSwitchPanel()
       })
 
@@ -438,12 +446,14 @@ export class BattleScene extends Phaser.Scene {
     }
 
     this.moveButtonContainer.setVisible(true)
+    this.awaitingInput = true
     this.logBg.setVisible(false)
     this.logText.setVisible(false)
   }
 
   hideMoveButtons() {
     this.moveButtonContainer.setVisible(false)
+    this.awaitingInput = false
     this.logBg.setVisible(true)
     this.logText.setVisible(true)
   }
@@ -520,8 +530,23 @@ export class BattleScene extends Phaser.Scene {
 
   // ===================== FORCE SWITCH (after faint) =====================
 
-  showForceSwitchPanel() {
+  showForceSwitchPanel(onSwitchComplete) {
+    // Clean up any existing panel first
+    if (this._forceSwitchPanel) {
+      this._forceSwitchPanel.destroy(true)
+      this._forceSwitchPanel = null
+    }
+
+    // Check if any alive creatures remain — if not, this is a defeat
+    const alive = this.playerTeam.filter(c => !c.fainted)
+    if (alive.length === 0) {
+      // No creatures left — defeat handled by battleOver in processTurnResult
+      if (onSwitchComplete) onSwitchComplete()
+      return
+    }
+
     const panel = this.add.container(0, 0)
+    this._forceSwitchPanel = panel
     const panelBg = this.add.graphics()
     panelBg.fillStyle(0x0f172a, 0.95)
     panelBg.fillRoundedRect(W / 2 - 200, H / 2 - 80, 400, 160, 10)
@@ -568,11 +593,43 @@ export class BattleScene extends Phaser.Scene {
       const zone = this.add.zone(x + 75, y + 40, 150, 80).setInteractive({ useHandCursor: true })
       zone.on('pointerdown', () => {
         panel.destroy(true)
+        this._forceSwitchPanel = null
         this.playerActiveIdx = idx
+        // Sync back to BattleContainer via callback
+        if (this._onForceSwitch) this._onForceSwitch(idx)
         this.drawPlayerCreature()
         this.updateInfoPanels()
         this.addLogLine(`Go, ${this.getPlayerCreature().name}!`)
-        setTimeout(() => this.showMoveButtons(), 500)
+
+        // Animate switch-in, then continue the event chain or show buttons
+        const newSprite = this.playerSprite
+        if (newSprite) {
+          const fsx = newSprite.scaleX
+          const fsy = newSprite.scaleY
+          newSprite.setAlpha(0)
+          newSprite.scaleX = fsx * 0.5
+          newSprite.scaleY = fsy * 0.5
+          this.tweens.add({
+            targets: newSprite,
+            alpha: 1, scaleX: fsx, scaleY: fsy,
+            duration: 400, ease: 'Back.easeOut',
+            onComplete: () => {
+              if (onSwitchComplete) {
+                onSwitchComplete()
+              } else {
+                this.isAnimating = false
+                if (!this.battleOver) this.showMoveButtons()
+              }
+            },
+          })
+        } else {
+          if (onSwitchComplete) {
+            onSwitchComplete()
+          } else {
+            this.isAnimating = false
+            if (!this.battleOver) this.showMoveButtons()
+          }
+        }
       })
 
       panel.add([cardBg, nameT, hpT, typeT, zone])
@@ -606,7 +663,9 @@ export class BattleScene extends Phaser.Scene {
       clearTimeout(safetyTimer)
       originalDone()
     }
-    const safetyTimer = setTimeout(onDone, 3000)
+    // Safety timer: 8 seconds to handle long animation chains
+    // (effectiveness popup + damage flash + faint can exceed 3s)
+    const safetyTimer = setTimeout(onDone, 8000)
     const delay = (ms) => setTimeout(onDone, ms)
 
     switch (event.type) {
@@ -836,8 +895,11 @@ export class BattleScene extends Phaser.Scene {
       case 'forceSwitch': {
         const isPlayer = event.data.creature === 'player'
         if (isPlayer && event.data.needsSelection) {
-          setTimeout(() => this.showForceSwitchPanel(), 300)
-          return // Panel callback handles flow
+          // Cancel safety timer — this event waits for player input indefinitely
+          clearTimeout(safetyTimer)
+          // Show the panel, passing onDone so the event chain continues after selection
+          setTimeout(() => this.showForceSwitchPanel(onDone), 300)
+          break // onDone will be called by the panel's selection handler
         }
         if (!isPlayer && event.data.newIndex !== null) {
           this.aiActiveIdx = event.data.newIndex
@@ -950,9 +1012,12 @@ export class BattleScene extends Phaser.Scene {
   processTurnResult(result) {
     if (this.battleOver) return
 
+    // Sync AI active index for non-faint switches (these happen before attacks)
+    // Player/AI faint switches are handled by forceSwitch events during animation
+    this.aiActiveIdx = result.aiActiveIdx
+
     this.animateEvents(result.events, () => {
-      this.playerActiveIdx = result.playerActiveIdx
-      this.aiActiveIdx = result.aiActiveIdx
+      // After all animations (including force switch selections), sync final state
       this.updateInfoPanels()
 
       if (result.battleOver) {
@@ -963,13 +1028,11 @@ export class BattleScene extends Phaser.Scene {
         return
       }
 
-      const playerNeedsSwitch = result.events.some(
-        e => e.type === 'forceSwitch' && e.data.creature === 'player' && e.data.needsSelection
-      )
-
-      if (!playerNeedsSwitch) {
-        setTimeout(() => this.showMoveButtons(), 400)
-      }
+      // If we reach here, all force switches have been handled (their onDone was called)
+      // Now show move buttons for the current active creature
+      setTimeout(() => {
+        if (!this.battleOver) this.showMoveButtons()
+      }, 400)
     })
   }
 }

@@ -24,7 +24,7 @@ export default function BattleContainer({ gameState, selectedTeam, difficulty, o
 
   const handlePlayerAction = useCallback((action) => {
     const scene = sceneRef.current
-    if (!scene || scene.battleOver || scene.isAnimating) return
+    if (!scene || scene.battleOver || !scene.awaitingInput) return
 
     scene.hideMoveButtons()
 
@@ -37,8 +37,17 @@ export default function BattleContainer({ gameState, selectedTeam, difficulty, o
       difficulty
     )
 
-    playerActiveIdxRef.current = result.playerActiveIdx
+    // Update AI index immediately (engine knows the new AI index)
     aiActiveIdxRef.current = result.aiActiveIdx
+
+    // Only update player index if no force switch is pending
+    // (force switch callback will set it via _onForceSwitch)
+    const playerNeedsForceSwitch = result.events.some(
+      e => e.type === 'forceSwitch' && e.data.creature === 'player' && e.data.needsSelection
+    )
+    if (!playerNeedsForceSwitch) {
+      playerActiveIdxRef.current = result.playerActiveIdx
+    }
 
     scene.processTurnResult(result)
   }, [difficulty])
@@ -111,6 +120,10 @@ export default function BattleContainer({ gameState, selectedTeam, difficulty, o
       if (scene) {
         sceneRef.current = scene
         window.__battleScene = scene
+        // Register callback so force switch updates our ref
+        scene._onForceSwitch = (newIdx) => {
+          playerActiveIdxRef.current = newIdx
+        }
         clearInterval(poll)
       }
     }, 50)
