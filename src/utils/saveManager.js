@@ -68,10 +68,7 @@ export function validateSave(data) {
     return { valid: false, errors: ['Save data is not an object'] }
   }
 
-  if (typeof data.version !== 'number') {
-    errors.push('Missing or invalid version field')
-  }
-
+  // Core fields required in all versions
   if (!Array.isArray(data.unlockedCreatureIds)) {
     errors.push('Missing unlockedCreatureIds array')
   }
@@ -80,10 +77,6 @@ export function validateSave(data) {
     errors.push('Missing creatureProgress object')
   } else {
     for (const [id, progress] of Object.entries(data.creatureProgress)) {
-      // Allow custom creature IDs (start with 'custom')
-      if (!CREATURES[id] && !id.startsWith('custom')) {
-        // Soft warning, don't fail
-      }
       if (typeof progress.level !== 'number') {
         errors.push(`${id}: missing or invalid level`)
       }
@@ -97,20 +90,13 @@ export function validateSave(data) {
     errors.push('Missing lastTeam array')
   }
 
-  if (typeof data.totalBattlesWon !== 'number') {
-    errors.push('Missing or invalid totalBattlesWon')
-  }
-
-  // Campaign structure (v2+)
+  // v2 campaign fields — only warn, migration will fill these in
   if (data.version >= 2) {
     if (!data.campaign || typeof data.campaign !== 'object') {
-      errors.push('Missing campaign object')
+      console.warn('Save missing campaign object — will be filled by migration')
     }
     if (!data.rewards || typeof data.rewards !== 'object') {
-      errors.push('Missing rewards object')
-    }
-    if (typeof data.teamSize !== 'number') {
-      errors.push('Missing or invalid teamSize')
+      console.warn('Save missing rewards object — will be filled by migration')
     }
   }
 

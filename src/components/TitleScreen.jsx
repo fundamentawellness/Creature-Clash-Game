@@ -26,7 +26,8 @@ export default function TitleScreen({ hasSave, forgeUnlocked, onNewGame, onConti
     if (result.success) {
       onImport(result.state)
     } else {
-      setImportError(result.errors.join(', '))
+      console.warn('Save import validation errors:', result.errors)
+      setImportError('Save file could not be loaded. It may be corrupted or from an incompatible version.')
     }
     setImporting(false)
     // Reset file input
