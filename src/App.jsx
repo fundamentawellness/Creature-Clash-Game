@@ -216,6 +216,7 @@ function App() {
             teamSize={gameState?.teamSize || 3}
             onConfirm={handleTeamConfirm}
             onBack={() => gameState?.campaign?.playerName ? transitionTo('campaignMap') : transitionTo('title')}
+            onUpdateGameState={handleUpdateGameState}
           />
         )
       case 'nameEntry':

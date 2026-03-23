@@ -192,7 +192,7 @@ function CreatureCard({ creatureId, progress, isUnlocked, isSelected, isExpanded
   )
 }
 
-export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, onConfirm, onBack }) {
+export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, onConfirm, onBack, onUpdateGameState }) {
   const maxTeam = teamSize || 3
   const [selected, setSelected] = useState(() => {
     // Pre-select last team if valid
@@ -202,6 +202,13 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
     return []
   })
   const [expandedId, setExpandedId] = useState(null)
+  const [showSaveInput, setShowSaveInput] = useState(false)
+  const [presetName, setPresetName] = useState('')
+  const [presetWarning, setPresetWarning] = useState(null)
+
+  const presetsUnlocked = gameState?.rewards?.teamPresets === true
+  const presets = gameState?.teamPresets || []
+  const MAX_PRESETS = 5
 
   const unlocked = useMemo(() => new Set(gameState?.unlockedCreatureIds || []), [gameState])
 
@@ -228,6 +235,40 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
 
   const handleToggleExpand = (id) => {
     setExpandedId(prev => prev === id ? null : id)
+  }
+
+  const handleSavePreset = () => {
+    const name = presetName.trim()
+    if (!name || selected.length !== maxTeam) return
+    if (onUpdateGameState) {
+      onUpdateGameState(prev => {
+        const existing = prev.teamPresets || []
+        if (existing.length >= MAX_PRESETS) return prev
+        // Don't allow duplicate names
+        if (existing.some(p => p.name === name)) return prev
+        return { ...prev, teamPresets: [...existing, { name, creatureIds: [...selected] }] }
+      })
+    }
+    setPresetName('')
+    setShowSaveInput(false)
+  }
+
+  const handleLoadPreset = (preset) => {
+    setPresetWarning(null)
+    const validIds = preset.creatureIds.filter(id => unlocked.has(id))
+    if (validIds.length < preset.creatureIds.length) {
+      setPresetWarning(`"${preset.name}" has ${preset.creatureIds.length - validIds.length} invalid creature(s) — skipped.`)
+    }
+    setSelected(validIds.slice(0, maxTeam))
+  }
+
+  const handleDeletePreset = (name) => {
+    if (onUpdateGameState) {
+      onUpdateGameState(prev => ({
+        ...prev,
+        teamPresets: (prev.teamPresets || []).filter(p => p.name !== name),
+      }))
+    }
   }
 
   return (
@@ -283,6 +324,41 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
         })}
       </div>
 
+      {/* Saved Teams presets */}
+      {presetsUnlocked && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="font-ui text-xs text-slate-500 uppercase font-bold tracking-wider">Saved Teams</span>
+            <span className="font-ui text-[10px] text-slate-600">({presets.length}/{MAX_PRESETS})</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {presets.map(preset => (
+              <div key={preset.name} className="flex items-center gap-0 group">
+                <button
+                  onClick={() => handleLoadPreset(preset)}
+                  className="px-3 py-1.5 rounded-l-lg text-xs font-ui font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600/50 border-r-0 transition-all cursor-pointer"
+                >
+                  {preset.name}
+                  <span className="ml-1.5 text-slate-500 font-normal">({preset.creatureIds.length})</span>
+                </button>
+                <button
+                  onClick={() => handleDeletePreset(preset.name)}
+                  className="px-1.5 py-1.5 rounded-r-lg text-xs font-ui font-bold bg-slate-800 hover:bg-red-900/50 text-slate-600 hover:text-red-400 border border-slate-600/50 border-l-0 transition-all cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {presets.length === 0 && (
+              <span className="text-xs font-ui text-slate-600 italic">No saved teams yet</span>
+            )}
+          </div>
+          {presetWarning && (
+            <p className="font-ui text-xs text-amber-400 mt-1">{presetWarning}</p>
+          )}
+        </div>
+      )}
+
       {/* Creature grid */}
       <div className="flex-1 overflow-y-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -302,8 +378,45 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
         </div>
       </div>
 
-      {/* Enter Battle button */}
-      <div className="mt-6 flex justify-center">
+      {/* Enter Battle + Save Team buttons */}
+      <div className="mt-6 flex justify-center items-center gap-3">
+        {presetsUnlocked && selected.length === maxTeam && !showSaveInput && presets.length < MAX_PRESETS && (
+          <button
+            onClick={() => { setShowSaveInput(true); setPresetName('') }}
+            className="px-5 py-4 rounded-xl font-ui text-sm font-bold uppercase tracking-wider
+              transition-all cursor-pointer
+              bg-slate-800 hover:bg-slate-700
+              border border-slate-600/50 hover:border-slate-500
+              text-slate-400 hover:text-slate-200"
+          >
+            Save Team
+          </button>
+        )}
+        {showSaveInput && (
+          <div className="flex items-center gap-2">
+            <input
+              value={presetName}
+              onChange={e => setPresetName(e.target.value.slice(0, 12))}
+              placeholder="Preset name..."
+              autoFocus
+              onKeyDown={e => { if (e.key === 'Enter') handleSavePreset(); if (e.key === 'Escape') setShowSaveInput(false) }}
+              className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-100 font-ui text-sm focus:border-amber-500 focus:outline-none w-36"
+            />
+            <button
+              onClick={handleSavePreset}
+              disabled={!presetName.trim()}
+              className="px-3 py-2 rounded-lg text-xs font-ui font-bold bg-emerald-700/60 hover:bg-emerald-600/80 text-emerald-200 border border-emerald-500/30 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => setShowSaveInput(false)}
+              className="px-3 py-2 rounded-lg text-xs font-ui font-bold bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-600/30 transition-all cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         <button
           onClick={() => onConfirm(selected)}
           disabled={selected.length !== maxTeam}
