@@ -362,7 +362,7 @@ export class BattleScene extends Phaser.Scene {
     const gapY = 4
     const gridW = cols * btnW + (cols - 1) * gapX
     const gridH = rows * btnH + (rows - 1) * gapY
-    const startX = (W - gridW) / 2
+    const startX = Math.max(10, PLAYER_X - gridW / 2)
     const switchH = 28
     const switchGap = 4
     const totalPanelH = gridH + switchGap + switchH
