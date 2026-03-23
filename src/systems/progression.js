@@ -4,7 +4,7 @@ import { CREATURES, CREATURE_LIST } from '../data/creatures.js'
 
 // Move learn schedule: move pool index → level required
 // Slots 1-2 are starters (level 1), then new move every other level
-const MOVE_LEARN_LEVELS = {
+export const MOVE_LEARN_LEVELS = {
   0: 1,  // Slot 1: starter (weak STAB)
   1: 1,  // Slot 2: starter (normal damage)
   2: 2,  // Slot 3: level 2

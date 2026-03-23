@@ -5,11 +5,26 @@ import { CREATURES, CREATURE_LIST } from '../data/creatures.js'
 import { createBattleCreature, executeTurn } from '../systems/battleEngine.js'
 import { aiBuildTeam } from '../systems/ai.js'
 import { getAllCreatures, getAllCreatureList } from '../utils/customData.js'
+import { buildRivalTeam } from '../data/campaign.js'
+import { MOVE_LEARN_LEVELS } from '../systems/progression.js'
 
 // Shared data store — scene reads on init
 let _pendingBattleData = null
 
-export default function BattleContainer({ gameState, selectedTeam, difficulty, onBattleEnd }) {
+/**
+ * Determine how many moves a creature at a given level should know.
+ * Levels correspond to MOVE_LEARN_LEVELS: level 1→2 moves, level 2→3, level 4→4, etc.
+ */
+function moveCountForLevel(level) {
+  let count = 2 // starter moves
+  for (const lvl of MOVE_LEARN_LEVELS) {
+    if (level >= lvl) count++
+    else break
+  }
+  return Math.min(count, 8)
+}
+
+export default function BattleContainer({ gameState, selectedTeam, battleInfo, onBattleEnd }) {
   const containerRef = useRef(null)
   const gameRef = useRef(null)
   const sceneRef = useRef(null)
@@ -18,8 +33,8 @@ export default function BattleContainer({ gameState, selectedTeam, difficulty, o
   const playerActiveIdxRef = useRef(0)
   const aiActiveIdxRef = useRef(0)
   const onBattleEndRef = useRef(onBattleEnd)
+  const aiConfigRef = useRef(battleInfo?.aiConfig || { optimalChance: 0.5, switchBehavior: 'never', teamBuild: 'random' })
 
-  // Keep callback ref current
   useEffect(() => { onBattleEndRef.current = onBattleEnd }, [onBattleEnd])
 
   const handlePlayerAction = useCallback((action) => {
@@ -34,14 +49,11 @@ export default function BattleContainer({ gameState, selectedTeam, difficulty, o
       playerActiveIdxRef.current,
       aiTeamRef.current,
       aiActiveIdxRef.current,
-      difficulty
+      aiConfigRef.current
     )
 
-    // Update AI index immediately (engine knows the new AI index)
     aiActiveIdxRef.current = result.aiActiveIdx
 
-    // Only update player index if no force switch is pending
-    // (force switch callback will set it via _onForceSwitch)
     const playerNeedsForceSwitch = result.events.some(
       e => e.type === 'forceSwitch' && e.data.creature === 'player' && e.data.needsSelection
     )
@@ -50,12 +62,11 @@ export default function BattleContainer({ gameState, selectedTeam, difficulty, o
     }
 
     scene.processTurnResult(result)
-  }, [difficulty])
+  }, [])
 
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!containerRef.current || !battleInfo) return
 
-    // Build creature lookup with custom creatures
     const allCreatures = getAllCreatures(gameState)
     const allCreatureList = getAllCreatureList(gameState)
 
@@ -68,22 +79,43 @@ export default function BattleContainer({ gameState, selectedTeam, difficulty, o
       }, allCreatures)
     }).filter(Boolean)
 
-    // Build AI team
-    const aiPool = difficulty === 'easy'
-      ? allCreatureList.filter(c => gameState.unlockedCreatureIds.includes(c.id))
-      : allCreatureList
-    const aiIds = aiBuildTeam(aiPool, difficulty)
-    const aiTeam = aiIds.map(id => {
-      const level = difficulty === 'easy' ? 1 : difficulty === 'medium' ? 3 : 5
-      const template = allCreatures[id]
-      const moveCount = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 3 : 4
-      return createBattleCreature({
-        id, level, wins: 0,
-        currentMoves: template.movePool.slice(0, moveCount),
-        learnedMoves: template.movePool.slice(0, moveCount),
-        movesOffered: moveCount,
-      }, allCreatures)
-    }).filter(Boolean)
+    // Build AI team based on battleInfo
+    let aiTeam
+    if (battleInfo.aiTeamSpec) {
+      // Predefined team (trainers/leaders)
+      aiTeam = battleInfo.aiTeamSpec.map(spec => {
+        const template = allCreatures[spec.id]
+        if (!template) return null
+        const mc = moveCountForLevel(spec.level)
+        return createBattleCreature({
+          id: spec.id, level: spec.level, wins: 0,
+          currentMoves: template.movePool.slice(0, Math.min(mc, 4)),
+          learnedMoves: template.movePool.slice(0, mc),
+          movesOffered: mc,
+        }, allCreatures)
+      }).filter(Boolean)
+    } else {
+      // Dynamic team (rivals)
+      const rivalSpecs = buildRivalTeam(
+        gameState.campaign?.playerTypeCounts,
+        battleInfo.rivalLevel || 4,
+        battleInfo.aiTeamSize || 3,
+        allCreatureList
+      )
+      aiTeam = rivalSpecs.map(spec => {
+        const template = allCreatures[spec.id]
+        if (!template) return null
+        const mc = moveCountForLevel(spec.level)
+        return createBattleCreature({
+          id: spec.id, level: spec.level, wins: 0,
+          currentMoves: template.movePool.slice(0, Math.min(mc, 4)),
+          learnedMoves: template.movePool.slice(0, mc),
+          movesOffered: mc,
+        }, allCreatures)
+      }).filter(Boolean)
+    }
+
+    aiConfigRef.current = battleInfo.aiConfig || { optimalChance: 0.5, switchBehavior: 'never', teamBuild: 'random' }
 
     playerTeamRef.current = playerTeam
     aiTeamRef.current = aiTeam
@@ -93,7 +125,7 @@ export default function BattleContainer({ gameState, selectedTeam, difficulty, o
     _pendingBattleData = {
       playerTeam,
       aiTeam,
-      difficulty,
+      difficulty: 'campaign', // legacy field, not used for logic
       onPlayerAction: (action) => handlePlayerAction(action),
       onBattleEnd: (result) => onBattleEndRef.current(result),
     }
@@ -120,7 +152,6 @@ export default function BattleContainer({ gameState, selectedTeam, difficulty, o
       if (scene) {
         sceneRef.current = scene
         window.__battleScene = scene
-        // Register callback so force switch updates our ref
         scene._onForceSwitch = (newIdx) => {
           playerActiveIdxRef.current = newIdx
         }

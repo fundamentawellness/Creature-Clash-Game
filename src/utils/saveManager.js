@@ -3,7 +3,7 @@ import { CREATURES } from '../data/creatures.js'
 import { MOVES } from '../data/moves.js'
 
 const SAVE_KEY = 'battle-arena-save'
-const CURRENT_VERSION = 1
+const CURRENT_VERSION = 2
 
 const STARTER_CREATURE_IDS = [
   'emberpaw', 'charrok', 'aquafin', 'shellguard', 'leafyn',
@@ -32,9 +32,26 @@ export function getDefaultSave() {
     unlockedCreatureIds: [...STARTER_CREATURE_IDS],
     creatureProgress,
     lastTeam: [STARTER_CREATURE_IDS[0], STARTER_CREATURE_IDS[1], STARTER_CREATURE_IDS[2]],
-    battlesWon: { easy: 0, medium: 0, hard: 0 },
     totalBattlesWon: 0,
-    difficulty: { easyCleared: false, mediumCleared: false, hardCleared: false },
+    campaign: {
+      playerName: '',
+      rivalName: '',
+      completedGyms: [],
+      completedTrainers: {},
+      completedRivals: [],
+      badges: [],
+      rivalDefeats: [],
+      playerTypeCounts: {},
+    },
+    rewards: {
+      teamPresets: false,
+      fourthTeamSlot: false,
+      moveTutor: false,
+      creatureForge: false,
+      championTitle: false,
+    },
+    teamSize: 3,
+    teamPresets: [],
     customCreatures: [],
     customTypes: [],
   }
@@ -57,39 +74,21 @@ export function validateSave(data) {
 
   if (!Array.isArray(data.unlockedCreatureIds)) {
     errors.push('Missing unlockedCreatureIds array')
-  } else {
-    for (const id of data.unlockedCreatureIds) {
-      if (!CREATURES[id]) {
-        errors.push(`Unknown creature ID in unlockedCreatureIds: "${id}"`)
-      }
-    }
   }
 
   if (!data.creatureProgress || typeof data.creatureProgress !== 'object') {
     errors.push('Missing creatureProgress object')
   } else {
     for (const [id, progress] of Object.entries(data.creatureProgress)) {
-      if (!CREATURES[id]) {
-        errors.push(`Unknown creature ID in creatureProgress: "${id}"`)
-        continue
+      // Allow custom creature IDs (start with 'custom')
+      if (!CREATURES[id] && !id.startsWith('custom')) {
+        // Soft warning, don't fail
       }
       if (typeof progress.level !== 'number') {
         errors.push(`${id}: missing or invalid level`)
       }
-      if (typeof progress.wins !== 'number') {
-        errors.push(`${id}: missing or invalid wins`)
-      }
       if (!Array.isArray(progress.currentMoves)) {
         errors.push(`${id}: missing currentMoves array`)
-      } else {
-        for (const moveId of progress.currentMoves) {
-          if (!MOVES[moveId]) {
-            errors.push(`${id}: unknown move ID "${moveId}"`)
-          }
-        }
-      }
-      if (!Array.isArray(progress.learnedMoves)) {
-        errors.push(`${id}: missing learnedMoves array`)
       }
     }
   }
@@ -98,16 +97,21 @@ export function validateSave(data) {
     errors.push('Missing lastTeam array')
   }
 
-  if (!data.battlesWon || typeof data.battlesWon !== 'object') {
-    errors.push('Missing battlesWon object')
-  }
-
   if (typeof data.totalBattlesWon !== 'number') {
     errors.push('Missing or invalid totalBattlesWon')
   }
 
-  if (!data.difficulty || typeof data.difficulty !== 'object') {
-    errors.push('Missing difficulty object')
+  // Campaign structure (v2+)
+  if (data.version >= 2) {
+    if (!data.campaign || typeof data.campaign !== 'object') {
+      errors.push('Missing campaign object')
+    }
+    if (!data.rewards || typeof data.rewards !== 'object') {
+      errors.push('Missing rewards object')
+    }
+    if (typeof data.teamSize !== 'number') {
+      errors.push('Missing or invalid teamSize')
+    }
   }
 
   return { valid: errors.length === 0, errors }
@@ -119,14 +123,43 @@ export function validateSave(data) {
 function migrateSave(data) {
   let migrated = { ...data }
 
-  // Future version migrations go here:
-  // if (migrated.version < 2) { ... migrated.version = 2 }
+  // v1 → v2: Replace difficulty system with campaign
+  if (!migrated.version || migrated.version < 2) {
+    // Preserve creature forge unlock if player had cleared hard mode
+    const hadForge = migrated.difficulty?.hardCleared === true
+
+    migrated.campaign = {
+      playerName: '',
+      rivalName: '',
+      completedGyms: [],
+      completedTrainers: {},
+      completedRivals: [],
+      badges: [],
+      rivalDefeats: [],
+      playerTypeCounts: {},
+    }
+
+    migrated.rewards = {
+      teamPresets: false,
+      fourthTeamSlot: false,
+      moveTutor: false,
+      creatureForge: hadForge,
+      championTitle: hadForge,
+    }
+
+    migrated.teamSize = 3
+    migrated.teamPresets = []
+
+    // Remove old fields
+    delete migrated.battlesWon
+    delete migrated.difficulty
+
+    migrated.version = 2
+  }
 
   // Ensure all expected fields exist with defaults
   if (!migrated.customCreatures) migrated.customCreatures = []
   if (!migrated.customTypes) migrated.customTypes = []
-  if (!migrated.battlesWon) migrated.battlesWon = { easy: 0, medium: 0, hard: 0 }
-  if (!migrated.difficulty) migrated.difficulty = { easyCleared: false, mediumCleared: false, hardCleared: false }
   if (typeof migrated.totalBattlesWon !== 'number') migrated.totalBattlesWon = 0
 
   // Ensure all unlocked creatures have progress entries
@@ -245,15 +278,15 @@ export function importSave(file) {
     reader.onload = (event) => {
       try {
         const data = JSON.parse(event.target.result)
-        const { valid, errors } = validateSave(data)
+
+        // Migrate first, then validate
+        const migrated = data.version !== CURRENT_VERSION ? migrateSave(data) : data
+        const { valid, errors } = validateSave(migrated)
 
         if (!valid) {
           resolve({ success: false, state: null, errors })
           return
         }
-
-        // Migrate if needed
-        const migrated = data.version !== CURRENT_VERSION ? migrateSave(data) : data
 
         // Save to localStorage
         saveGame(migrated)

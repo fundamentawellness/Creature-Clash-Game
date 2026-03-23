@@ -192,10 +192,11 @@ function CreatureCard({ creatureId, progress, isUnlocked, isSelected, isExpanded
   )
 }
 
-export default function TeamSelectScreen({ gameState, lastTeam, onConfirm, onBack }) {
+export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, onConfirm, onBack }) {
+  const maxTeam = teamSize || 3
   const [selected, setSelected] = useState(() => {
     // Pre-select last team if valid
-    if (lastTeam?.length === 3 && lastTeam.every(id => gameState?.unlockedCreatureIds?.includes(id))) {
+    if (lastTeam?.length >= 1 && lastTeam.length <= maxTeam && lastTeam.every(id => gameState?.unlockedCreatureIds?.includes(id))) {
       return [...lastTeam]
     }
     return []
@@ -220,7 +221,7 @@ export default function TeamSelectScreen({ gameState, lastTeam, onConfirm, onBac
       if (prev.includes(id)) {
         return prev.filter(x => x !== id)
       }
-      if (prev.length >= 3) return prev
+      if (prev.length >= maxTeam) return prev
       return [...prev, id]
     })
   }
@@ -247,7 +248,7 @@ export default function TeamSelectScreen({ gameState, lastTeam, onConfirm, onBac
 
       {/* Team preview slots */}
       <div className="flex gap-3 justify-center mb-6">
-        {[0, 1, 2].map(slot => {
+        {Array.from({ length: maxTeam }, (_, i) => i).map(slot => {
           const id = selected[slot]
           const template = id ? (allCreaturesMap[id] || CREATURES[id]) : null
           const colors = template ? TYPE_COLORS[template.type] : null
@@ -305,7 +306,7 @@ export default function TeamSelectScreen({ gameState, lastTeam, onConfirm, onBac
       <div className="mt-6 flex justify-center">
         <button
           onClick={() => onConfirm(selected)}
-          disabled={selected.length !== 3}
+          disabled={selected.length !== maxTeam}
           className="px-10 py-4 rounded-xl font-game text-xl font-bold uppercase tracking-wider
             transition-all cursor-pointer
             disabled:opacity-30 disabled:cursor-not-allowed
@@ -313,7 +314,7 @@ export default function TeamSelectScreen({ gameState, lastTeam, onConfirm, onBac
             border border-amber-400/30 hover:border-amber-400/60
             shadow-lg shadow-amber-900/30 hover:shadow-amber-800/50"
         >
-          {selected.length === 3 ? 'Enter Battle' : `Select ${3 - selected.length} more`}
+          {selected.length === maxTeam ? 'Enter Battle' : `Select ${maxTeam - selected.length} more`}
         </button>
       </div>
     </div>

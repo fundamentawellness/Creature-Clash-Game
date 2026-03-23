@@ -2,11 +2,16 @@ import { useState, useEffect, useCallback, Component } from 'react'
 import { loadGame, saveGame, getDefaultSave } from './utils/saveManager.js'
 import TitleScreen from './components/TitleScreen.jsx'
 import TeamSelectScreen from './components/TeamSelectScreen.jsx'
-import DifficultySelectScreen from './components/DifficultySelectScreen.jsx'
 import BattleContainer from './components/BattleContainer.jsx'
 import ResultScreen from './components/ResultScreen.jsx'
 import SettingsMenu from './components/SettingsMenu.jsx'
 import CreatureForgeScreen from './components/CreatureForgeScreen.jsx'
+import NameEntryScreen from './components/NameEntryScreen.jsx'
+import CampaignMapScreen from './components/CampaignMapScreen.jsx'
+import BadgeCollectionScreen from './components/BadgeCollectionScreen.jsx'
+import DialogueOverlay from './components/DialogueOverlay.jsx'
+import MoveTutorScreen from './components/MoveTutorScreen.jsx'
+import CreaturePickModal from './components/CreaturePickModal.jsx'
 
 // Error boundary to prevent crashes from losing save data
 class ErrorBoundary extends Component {
@@ -50,10 +55,13 @@ function App() {
   const [gameState, setGameState] = useState(null)
   const [battleResult, setBattleResult] = useState(null)
   const [selectedTeam, setSelectedTeam] = useState([])
-  const [selectedDifficulty, setSelectedDifficulty] = useState('easy')
+  const [currentBattleInfo, setCurrentBattleInfo] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [battleKey, setBattleKey] = useState(0) // Force remount on new battle
+  const [battleKey, setBattleKey] = useState(0)
   const [transitioning, setTransitioning] = useState(false)
+  const [dialogue, setDialogue] = useState(null) // { speakerName, text, onDismiss }
+  const [creaturePick, setCreaturePick] = useState(null) // { creatureIds, onPick }
+  const [rewardSplash, setRewardSplash] = useState(null) // { title, description }
 
   // Load save on mount
   useEffect(() => {
@@ -74,6 +82,8 @@ function App() {
     }, 200)
   }, [])
 
+  // ===== TITLE SCREEN HANDLERS =====
+
   const handleNewGame = useCallback(() => {
     const fresh = getDefaultSave()
     setGameState(fresh)
@@ -81,26 +91,69 @@ function App() {
   }, [transitionTo])
 
   const handleContinue = useCallback(() => {
-    transitionTo('teamSelect')
-  }, [transitionTo])
+    if (gameState?.campaign?.playerName) {
+      transitionTo('campaignMap')
+    } else {
+      transitionTo('teamSelect')
+    }
+  }, [transitionTo, gameState])
 
   const handleImportComplete = useCallback((imported) => {
     setGameState(imported)
-    transitionTo('teamSelect')
+    if (imported?.campaign?.playerName) {
+      transitionTo('campaignMap')
+    } else {
+      transitionTo('teamSelect')
+    }
   }, [transitionTo])
+
+  // ===== TEAM / NAME ENTRY =====
 
   const handleTeamConfirm = useCallback((team) => {
     setSelectedTeam(team)
     setGameState(prev => ({ ...prev, lastTeam: team }))
-    transitionTo('difficultySelect')
+    // If names not set yet (new game), go to name entry
+    if (!gameState?.campaign?.playerName) {
+      transitionTo('nameEntry')
+    } else {
+      transitionTo('campaignMap')
+    }
+  }, [transitionTo, gameState])
+
+  const handleNameConfirm = useCallback((playerName, rivalName) => {
+    setGameState(prev => ({
+      ...prev,
+      campaign: { ...prev.campaign, playerName, rivalName },
+    }))
+    transitionTo('campaignMap')
   }, [transitionTo])
 
-  const handleDifficultySelect = useCallback((difficulty) => {
-    setSelectedDifficulty(difficulty)
+  // ===== CAMPAIGN MAP =====
+
+  const handleSelectBattle = useCallback((battleInfo) => {
+    setCurrentBattleInfo(battleInfo)
     setBattleResult(null)
     setBattleKey(k => k + 1)
-    transitionTo('battle')
-  }, [transitionTo])
+
+    // Show pre-battle dialogue for leaders/rivals
+    if (battleInfo.preBattleDialogue) {
+      const speaker = battleInfo.type === 'rival'
+        ? (gameState?.campaign?.rivalName || 'Rival')
+        : (battleInfo.leaderName || 'Leader')
+      setDialogue({
+        speakerName: speaker,
+        text: battleInfo.preBattleDialogue,
+        onDismiss: () => {
+          setDialogue(null)
+          transitionTo('battle')
+        },
+      })
+    } else {
+      transitionTo('battle')
+    }
+  }, [transitionTo, gameState])
+
+  // ===== BATTLE =====
 
   const handleBattleEnd = useCallback((result) => {
     setBattleResult(result)
@@ -113,6 +166,8 @@ function App() {
     transitionTo('battle')
   }, [transitionTo])
 
+  // ===== GAME STATE UPDATE =====
+
   const handleUpdateGameState = useCallback((updater) => {
     setGameState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater
@@ -124,8 +179,14 @@ function App() {
     setGameState(null)
     setBattleResult(null)
     setSelectedTeam([])
+    setCurrentBattleInfo(null)
+    setDialogue(null)
+    setCreaturePick(null)
+    setRewardSplash(null)
     setScreen('title')
   }, [])
+
+  // ===== RENDER =====
 
   const renderScreen = () => {
     switch (screen) {
@@ -133,7 +194,7 @@ function App() {
         return (
           <TitleScreen
             hasSave={!!gameState}
-            forgeUnlocked={!!gameState?.difficulty?.hardCleared}
+            forgeUnlocked={!!gameState?.rewards?.creatureForge}
             onNewGame={handleNewGame}
             onContinue={handleContinue}
             onImport={handleImportComplete}
@@ -145,16 +206,42 @@ function App() {
           <TeamSelectScreen
             gameState={gameState}
             lastTeam={gameState?.lastTeam || []}
+            teamSize={gameState?.teamSize || 3}
             onConfirm={handleTeamConfirm}
-            onBack={() => transitionTo('title')}
+            onBack={() => gameState?.campaign?.playerName ? transitionTo('campaignMap') : transitionTo('title')}
           />
         )
-      case 'difficultySelect':
+      case 'nameEntry':
         return (
-          <DifficultySelectScreen
-            gameState={gameState}
-            onSelect={handleDifficultySelect}
+          <NameEntryScreen
+            onConfirm={handleNameConfirm}
             onBack={() => transitionTo('teamSelect')}
+          />
+        )
+      case 'campaignMap':
+        return (
+          <CampaignMapScreen
+            gameState={gameState}
+            onSelectBattle={handleSelectBattle}
+            onBadges={() => transitionTo('badges')}
+            onMoveTutor={() => transitionTo('moveTutor')}
+            onBack={() => transitionTo('title')}
+            onChangeTeam={() => transitionTo('teamSelect')}
+          />
+        )
+      case 'badges':
+        return (
+          <BadgeCollectionScreen
+            gameState={gameState}
+            onBack={() => transitionTo('campaignMap')}
+          />
+        )
+      case 'moveTutor':
+        return (
+          <MoveTutorScreen
+            gameState={gameState}
+            onUpdateGameState={handleUpdateGameState}
+            onBack={() => transitionTo('campaignMap')}
           />
         )
       case 'battle':
@@ -163,7 +250,7 @@ function App() {
             key={battleKey}
             gameState={gameState}
             selectedTeam={selectedTeam}
-            difficulty={selectedDifficulty}
+            battleInfo={currentBattleInfo}
             onBattleEnd={handleBattleEnd}
           />
         )
@@ -173,11 +260,14 @@ function App() {
             result={battleResult}
             gameState={gameState}
             selectedTeam={selectedTeam}
-            difficulty={selectedDifficulty}
+            battleInfo={currentBattleInfo}
             onUpdateGameState={handleUpdateGameState}
             onBattleAgain={handleBattleAgain}
             onChangeTeam={() => transitionTo('teamSelect')}
-            onMainMenu={() => transitionTo('title')}
+            onMainMenu={() => transitionTo('campaignMap')}
+            onShowDialogue={(d) => setDialogue(d)}
+            onShowCreaturePick={(p) => setCreaturePick(p)}
+            onShowRewardSplash={(r) => setRewardSplash(r)}
           />
         )
       case 'forge':
@@ -217,6 +307,41 @@ function App() {
             onImport={handleImportComplete}
             onReset={handleResetGame}
           />
+        )}
+
+        {/* Dialogue overlay */}
+        {dialogue && (
+          <DialogueOverlay
+            speakerName={dialogue.speakerName}
+            text={dialogue.text}
+            onDismiss={dialogue.onDismiss}
+          />
+        )}
+
+        {/* Creature pick modal */}
+        {creaturePick && (
+          <CreaturePickModal
+            creatureIds={creaturePick.creatureIds}
+            onPick={(id) => {
+              creaturePick.onPick(id)
+              setCreaturePick(null)
+            }}
+            title={creaturePick.title}
+          />
+        )}
+
+        {/* Reward splash */}
+        {rewardSplash && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setRewardSplash(null)}>
+            <div className="absolute inset-0 bg-black/70" />
+            <div className="relative text-center slide-up">
+              <h2 className="font-game text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-orange-500 mb-4">
+                {rewardSplash.title}
+              </h2>
+              <p className="font-ui text-lg text-slate-300 mb-6">{rewardSplash.description}</p>
+              <p className="font-ui text-sm text-slate-500 animate-pulse">Click to continue</p>
+            </div>
+          </div>
         )}
 
         <div className={`flex-1 flex flex-col transition-opacity duration-200 ${transitioning ? 'opacity-0' : 'opacity-100'}`}>

@@ -175,10 +175,10 @@ function executeAttack(attacker, move, defender, attackerLabel) {
  * @param {number} playerActiveIdx — index of player's active creature
  * @param {object[]} aiTeam — AI's team of battle creatures
  * @param {number} aiActiveIdx — index of AI's active creature
- * @param {'easy'|'medium'|'hard'} difficulty
+ * @param {object|string} aiConfig — AI config object { optimalChance, switchBehavior } or legacy difficulty string
  * @returns {{ events: object[], playerActiveIdx: number, aiActiveIdx: number, battleOver: boolean, winner: string|null }}
  */
-export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, aiActiveIdx, difficulty) {
+export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, aiActiveIdx, aiConfig) {
   const events = []
   let newPlayerIdx = playerActiveIdx
   let newAiIdx = aiActiveIdx
@@ -187,10 +187,10 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
   const aiCreature = aiTeam[aiActiveIdx]
 
   // --- Determine AI action ---
-  const switchIdx = aiShouldSwitch(aiTeam, aiActiveIdx, playerCreature, difficulty)
+  const switchIdx = aiShouldSwitch(aiTeam, aiActiveIdx, playerCreature, aiConfig)
   const aiAction = switchIdx !== null
     ? { type: 'switch', targetIndex: switchIdx }
-    : { type: 'attack', moveId: aiPickMove(aiCreature, playerCreature, difficulty)?.id }
+    : { type: 'attack', moveId: aiPickMove(aiCreature, playerCreature, aiConfig)?.id }
 
   // --- Handle switches (happen before attacks) ---
 
