@@ -91,6 +91,10 @@ function App() {
   }, [transitionTo])
 
   const handleContinue = useCallback(() => {
+    // Restore last team from save
+    if (gameState?.lastTeam?.length > 0) {
+      setSelectedTeam(gameState.lastTeam)
+    }
     if (gameState?.campaign?.playerName) {
       transitionTo('campaignMap')
     } else {
@@ -100,6 +104,9 @@ function App() {
 
   const handleImportComplete = useCallback((imported) => {
     setGameState(imported)
+    if (imported?.lastTeam?.length > 0) {
+      setSelectedTeam(imported.lastTeam)
+    }
     if (imported?.campaign?.playerName) {
       transitionTo('campaignMap')
     } else {

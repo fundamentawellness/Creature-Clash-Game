@@ -16,9 +16,10 @@ let _pendingBattleData = null
  * Levels correspond to MOVE_LEARN_LEVELS: level 1→2 moves, level 2→3, level 4→4, etc.
  */
 function moveCountForLevel(level) {
-  let count = 2 // starter moves
-  for (const lvl of MOVE_LEARN_LEVELS) {
-    if (level >= lvl) count++
+  let count = 2 // starter moves (slots 0 and 1, both at level 1)
+  // Slots 2-7 unlock at levels defined in MOVE_LEARN_LEVELS
+  for (let i = 2; i <= 7; i++) {
+    if (MOVE_LEARN_LEVELS[i] !== undefined && level >= MOVE_LEARN_LEVELS[i]) count++
     else break
   }
   return Math.min(count, 8)
