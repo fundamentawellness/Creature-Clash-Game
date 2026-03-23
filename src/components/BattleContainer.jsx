@@ -24,7 +24,7 @@ export default function BattleContainer({ gameState, selectedTeam, difficulty, o
 
   const handlePlayerAction = useCallback((action) => {
     const scene = sceneRef.current
-    if (!scene || scene.battleOver || !scene.awaitingInput) return
+    if (!scene || scene.battleOver || scene.isAnimating) return
 
     scene.hideMoveButtons()
 
