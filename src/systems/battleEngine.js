@@ -178,28 +178,31 @@ function executeAttack(attacker, move, defender, attackerLabel) {
  * @param {object|string} aiConfig — AI config object { optimalChance, switchBehavior } or legacy difficulty string
  * @returns {{ events: object[], playerActiveIdx: number, aiActiveIdx: number, battleOver: boolean, winner: string|null }}
  */
-export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, aiActiveIdx, aiConfig) {
+export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, aiActiveIdx, aiConfig, cooldowns) {
   const events = []
   let newPlayerIdx = playerActiveIdx
   let newAiIdx = aiActiveIdx
+  let playerCooldown = cooldowns?.player || 0
+  let aiCooldown = cooldowns?.ai || 0
 
   const playerCreature = playerTeam[playerActiveIdx]
   const aiCreature = aiTeam[aiActiveIdx]
 
-  // --- Determine AI action ---
-  const switchIdx = aiShouldSwitch(aiTeam, aiActiveIdx, playerCreature, aiConfig)
+  // --- Determine AI action (respects cooldown) ---
+  const switchIdx = aiCooldown > 0 ? null : aiShouldSwitch(aiTeam, aiActiveIdx, playerCreature, aiConfig)
   const aiAction = switchIdx !== null
     ? { type: 'switch', targetIndex: switchIdx }
     : { type: 'attack', moveId: aiPickMove(aiCreature, playerCreature, aiConfig)?.id }
 
   // --- Handle switches (happen before attacks) ---
 
-  // Player switch
+  // Player switch (voluntary — triggers cooldown)
   if (playerAction.type === 'switch') {
     resetStages(playerCreature)
     recalcCurrentStats(playerCreature)
     newPlayerIdx = playerAction.targetIndex
     const switchedIn = playerTeam[newPlayerIdx]
+    playerCooldown = 3
     events.push({
       type: 'switch',
       data: {
@@ -211,12 +214,13 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
     })
   }
 
-  // AI switch
+  // AI switch (voluntary — triggers cooldown)
   if (aiAction.type === 'switch') {
     resetStages(aiCreature)
     recalcCurrentStats(aiCreature)
     newAiIdx = aiAction.targetIndex
     const switchedIn = aiTeam[newAiIdx]
+    aiCooldown = 3
     events.push({
       type: 'switch',
       data: {
@@ -278,6 +282,10 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
   }
   // Both switched — no attacks, just the switch events above
 
+  // --- Decrement cooldowns at end of turn (min 0) ---
+  playerCooldown = Math.max(0, playerCooldown - 1)
+  aiCooldown = Math.max(0, aiCooldown - 1)
+
   // --- Handle forced switches for fainted creatures ---
   const result = {
     events,
@@ -285,6 +293,7 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
     aiActiveIdx: newAiIdx,
     battleOver: false,
     winner: null,
+    cooldowns: { player: playerCooldown, ai: aiCooldown },
   }
 
   // Check for faints and battle end
@@ -298,11 +307,12 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
     result.battleOver = true
     result.winner = 'player'
   } else {
-    // Force switch for fainted AI creature
+    // Force switch for fainted AI creature — resets AI cooldown
     if (currentAi.fainted) {
       const nextAi = aiTeam.findIndex((c, i) => i !== newAiIdx && !c.fainted)
       if (nextAi !== -1) {
         result.aiActiveIdx = nextAi
+        result.cooldowns.ai = 0
         events.push({
           type: 'forceSwitch',
           data: {
@@ -315,8 +325,9 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
       }
     }
 
-    // Player fainted — they need to choose who to send in (handled by UI)
+    // Player fainted — resets player cooldown, they choose who to send in
     if (currentPlayer.fainted) {
+      result.cooldowns.player = 0
       events.push({
         type: 'forceSwitch',
         data: {

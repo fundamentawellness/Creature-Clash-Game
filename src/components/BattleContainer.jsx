@@ -33,6 +33,7 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
   const aiTeamRef = useRef(null)
   const playerActiveIdxRef = useRef(0)
   const aiActiveIdxRef = useRef(0)
+  const cooldownsRef = useRef({ player: 0, ai: 0 })
   const onBattleEndRef = useRef(onBattleEnd)
   const aiConfigRef = useRef(battleInfo?.aiConfig || { optimalChance: 0.5, switchBehavior: 'never', teamBuild: 'random' })
 
@@ -50,8 +51,12 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
       playerActiveIdxRef.current,
       aiTeamRef.current,
       aiActiveIdxRef.current,
-      aiConfigRef.current
+      aiConfigRef.current,
+      cooldownsRef.current
     )
+
+    // Update cooldowns from engine result
+    cooldownsRef.current = result.cooldowns || { player: 0, ai: 0 }
 
     aiActiveIdxRef.current = result.aiActiveIdx
 
@@ -62,6 +67,8 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
       playerActiveIdxRef.current = result.playerActiveIdx
     }
 
+    // Pass cooldown to scene so it can update switch button state
+    scene.playerSwitchCooldown = cooldownsRef.current.player
     scene.processTurnResult(result)
   }, [])
 

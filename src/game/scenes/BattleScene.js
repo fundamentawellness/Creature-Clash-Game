@@ -433,41 +433,58 @@ export class BattleScene extends Phaser.Scene {
       this.moveButtonContainer.add([btn, nameText, detailText, hitZone])
     })
 
-    // Switch button — full width below move grid, only if bench creatures exist
+    // Switch button — full width below move grid
     const hasSwitch = this.playerTeam.some((c, i) => i !== this.playerActiveIdx && !c.fainted)
     if (hasSwitch) {
       const switchY = btnY + gridH + switchGap
+      const cooldown = this.playerSwitchCooldown || 0
+      const canSwitch = cooldown <= 0
+
       const switchBg = this.add.graphics()
-      switchBg.fillStyle(0x1e293b, 0.9)
-      switchBg.fillRoundedRect(startX, switchY, gridW, switchH, 4)
-      switchBg.lineStyle(1, 0x475569, 0.6)
-      switchBg.strokeRoundedRect(startX, switchY, gridW, switchH, 4)
-
-      const switchText = this.add.text(W / 2, switchY + switchH / 2, '\u21C4  SWITCH CREATURE', {
-        fontSize: '11px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: '#94a3b8',
-      }).setOrigin(0.5)
-
-      const switchZone = this.add.zone(W / 2, switchY + switchH / 2, gridW, switchH).setInteractive({ useHandCursor: true })
-      switchZone.on('pointerover', () => {
-        switchBg.clear()
-        switchBg.fillStyle(0x334155, 1)
-        switchBg.fillRoundedRect(startX, switchY, gridW, switchH, 4)
-        switchBg.lineStyle(1, 0x64748b, 0.8)
-        switchBg.strokeRoundedRect(startX, switchY, gridW, switchH, 4)
-      })
-      switchZone.on('pointerout', () => {
-        switchBg.clear()
+      if (canSwitch) {
         switchBg.fillStyle(0x1e293b, 0.9)
         switchBg.fillRoundedRect(startX, switchY, gridW, switchH, 4)
         switchBg.lineStyle(1, 0x475569, 0.6)
         switchBg.strokeRoundedRect(startX, switchY, gridW, switchH, 4)
-      })
-      switchZone.on('pointerdown', () => {
-        if (!this.awaitingInput) return
-        this.showSwitchPanel()
-      })
+      } else {
+        switchBg.fillStyle(0x111827, 0.7)
+        switchBg.fillRoundedRect(startX, switchY, gridW, switchH, 4)
+        switchBg.lineStyle(1, 0x1e293b, 0.4)
+        switchBg.strokeRoundedRect(startX, switchY, gridW, switchH, 4)
+      }
 
-      this.moveButtonContainer.add([switchBg, switchText, switchZone])
+      const labelStr = canSwitch
+        ? '\u21C4  SWITCH CREATURE'
+        : `\uD83D\uDD12  SWITCH (${cooldown} turn${cooldown > 1 ? 's' : ''})`
+      const switchText = this.add.text(W / 2, switchY + switchH / 2, labelStr, {
+        fontSize: '11px', fontFamily: 'Rajdhani', fontStyle: 'bold',
+        color: canSwitch ? '#94a3b8' : '#475569',
+      }).setOrigin(0.5)
+
+      if (canSwitch) {
+        const switchZone = this.add.zone(W / 2, switchY + switchH / 2, gridW, switchH).setInteractive({ useHandCursor: true })
+        switchZone.on('pointerover', () => {
+          switchBg.clear()
+          switchBg.fillStyle(0x334155, 1)
+          switchBg.fillRoundedRect(startX, switchY, gridW, switchH, 4)
+          switchBg.lineStyle(1, 0x64748b, 0.8)
+          switchBg.strokeRoundedRect(startX, switchY, gridW, switchH, 4)
+        })
+        switchZone.on('pointerout', () => {
+          switchBg.clear()
+          switchBg.fillStyle(0x1e293b, 0.9)
+          switchBg.fillRoundedRect(startX, switchY, gridW, switchH, 4)
+          switchBg.lineStyle(1, 0x475569, 0.6)
+          switchBg.strokeRoundedRect(startX, switchY, gridW, switchH, 4)
+        })
+        switchZone.on('pointerdown', () => {
+          if (!this.awaitingInput) return
+          this.showSwitchPanel()
+        })
+        this.moveButtonContainer.add(switchZone)
+      }
+
+      this.moveButtonContainer.add([switchBg, switchText])
     }
 
     this.moveButtonContainer.setVisible(true)
