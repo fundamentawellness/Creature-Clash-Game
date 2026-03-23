@@ -3,6 +3,7 @@ import { CREATURES, CREATURE_LIST } from '../data/creatures.js'
 import { MOVES } from '../data/moves.js'
 import { TYPE_COLORS, TYPE_EMOJIS } from '../data/types.js'
 import { getAllCreatures, getAllCreatureList, getFullTypeColors } from '../utils/customData.js'
+import CreatureSprite from './CreatureSprite.jsx'
 
 const STAT_LABELS = { hp: 'HP', atk: 'ATK', def: 'DEF', spd: 'SPD', spc: 'SPC' }
 const MAX_STAT = 95 // For bar scaling
@@ -90,9 +91,13 @@ function CreatureCard({ creatureId, progress, isUnlocked, isSelected, isExpanded
     return (
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 opacity-50">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center">
-            <span className="text-slate-600 text-lg">?</span>
-          </div>
+          <CreatureSprite
+            creatureId={creatureId}
+            creatureType={template.type}
+            creatureName={template.name}
+            size={48}
+            locked={true}
+          />
           <div>
             <p className="font-ui font-bold text-slate-600 text-lg">???</p>
             <p className="font-ui text-xs text-slate-700 uppercase">Locked</p>
@@ -121,16 +126,13 @@ function CreatureCard({ creatureId, progress, isUnlocked, isSelected, isExpanded
       <div className="p-3 pb-2">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            {/* Creature avatar placeholder */}
-            <div
-              className="w-12 h-12 rounded-lg flex items-center justify-center border"
-              style={{
-                background: colors.dark + '60',
-                borderColor: colors.accent + '40',
-              }}
-            >
-              <div className="w-7 h-7 rounded-full" style={{ background: colors.accent }} />
-            </div>
+            <CreatureSprite
+              creatureId={creatureId}
+              creatureType={template.type}
+              creatureName={template.name}
+              size={48}
+              locked={!isUnlocked}
+            />
             <div>
               <p className="font-ui font-bold text-lg leading-tight" style={{ color: colors.light }}>
                 {template.name}
@@ -247,7 +249,7 @@ export default function TeamSelectScreen({ gameState, lastTeam, onConfirm, onBac
       <div className="flex gap-3 justify-center mb-6">
         {[0, 1, 2].map(slot => {
           const id = selected[slot]
-          const template = id ? CREATURES[id] : null
+          const template = id ? (allCreaturesMap[id] || CREATURES[id]) : null
           const colors = template ? TYPE_COLORS[template.type] : null
 
           return (
@@ -262,8 +264,13 @@ export default function TeamSelectScreen({ gameState, lastTeam, onConfirm, onBac
             >
               {template ? (
                 <>
-                  <div className="w-8 h-8 rounded-full" style={{ background: colors.accent }} />
-                  <span className="font-ui text-xs font-bold mt-1" style={{ color: colors.light }}>
+                  <CreatureSprite
+                    creatureId={id}
+                    creatureType={template.type}
+                    creatureName={template.name}
+                    size={48}
+                  />
+                  <span className="font-ui text-xs font-bold mt-0.5" style={{ color: colors.light }}>
                     {template.name}
                   </span>
                 </>

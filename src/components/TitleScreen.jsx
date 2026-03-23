@@ -1,8 +1,14 @@
 import { useState, useRef } from 'react'
 import { importSave } from '../utils/saveManager.js'
 import { TYPE_COLORS } from '../data/types.js'
+import CreatureSprite from './CreatureSprite.jsx'
 
 const FLOATING_TYPES = ['fire', 'water', 'grass', 'electric', 'rock', 'ground', 'poison']
+// One representative creature per type for the title strip
+const TITLE_CREATURES = {
+  fire: 'emberpaw', water: 'aquafin', grass: 'leafyn', electric: 'voltzap',
+  rock: 'bouldar', ground: 'dustail', poison: 'venomaw',
+}
 
 export default function TitleScreen({ hasSave, forgeUnlocked, onNewGame, onContinue, onImport, onForge }) {
   const [importing, setImporting] = useState(false)
@@ -60,21 +66,23 @@ export default function TitleScreen({ hasSave, forgeUnlocked, onNewGame, onConti
         </p>
       </div>
 
-      {/* Creature placeholder strip */}
+      {/* Creature sprite strip */}
       <div className="relative z-10 flex gap-3 mt-10 slide-up" style={{ animationDelay: '0.15s' }}>
         {FLOATING_TYPES.map((type) => (
           <div
             key={type}
-            className="w-10 h-10 md:w-12 md:h-12 rounded-lg border-2 flex items-center justify-center"
+            className="w-14 h-14 md:w-20 md:h-20 rounded-lg border-2 flex items-center justify-center overflow-hidden"
             style={{
               borderColor: TYPE_COLORS[type].accent,
-              background: TYPE_COLORS[type].dark + '40',
+              background: TYPE_COLORS[type].dark + '30',
               boxShadow: `0 0 12px ${TYPE_COLORS[type].accent}40`,
             }}
           >
-            <div
-              className="w-5 h-5 md:w-6 md:h-6 rounded-full"
-              style={{ background: TYPE_COLORS[type].accent }}
+            <CreatureSprite
+              creatureId={TITLE_CREATURES[type]}
+              creatureType={type}
+              creatureName={TITLE_CREATURES[type]}
+              size={64}
             />
           </div>
         ))}

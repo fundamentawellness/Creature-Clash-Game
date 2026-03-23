@@ -3,6 +3,7 @@ import { CREATURES } from '../data/creatures.js'
 import { TYPE_COLORS } from '../data/types.js'
 import { addWin, applyLevelUp, getAvailableNewMove, learnMove, skipMove, checkCreatureUnlock } from '../systems/progression.js'
 import MoveLearnModal from './MoveLearnModal.jsx'
+import CreatureSprite from './CreatureSprite.jsx'
 
 export default function ResultScreen({ result, gameState, selectedTeam, difficulty, onUpdateGameState, onBattleAgain, onChangeTeam, onMainMenu }) {
   const [processedResults, setProcessedResults] = useState(null)
@@ -188,12 +189,12 @@ export default function ResultScreen({ result, gameState, selectedTeam, difficul
                 }}
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center"
-                    style={{ background: colors?.dark + '60' }}
-                  >
-                    <div className="w-6 h-6 rounded-full" style={{ background: colors?.accent }} />
-                  </div>
+                  <CreatureSprite
+                    creatureId={cr.id}
+                    creatureType={cr.type}
+                    creatureName={cr.name}
+                    size={48}
+                  />
                   <div>
                     <p className="font-ui font-bold" style={{ color: colors?.light }}>{cr.name}</p>
                     {won ? (
@@ -234,9 +235,17 @@ export default function ResultScreen({ result, gameState, selectedTeam, difficul
               boxShadow: `0 0 30px ${TYPE_COLORS[CREATURES[unlockedCreature]?.type]?.accent}20`,
             }}
           >
-            <p className="font-game text-sm font-bold text-amber-400 uppercase tracking-wider mb-1">
+            <p className="font-game text-sm font-bold text-amber-400 uppercase tracking-wider mb-2">
               New Creature Unlocked!
             </p>
+            <div className="flex justify-center mb-2">
+              <CreatureSprite
+                creatureId={unlockedCreature}
+                creatureType={CREATURES[unlockedCreature]?.type}
+                creatureName={CREATURES[unlockedCreature]?.name}
+                size={120}
+              />
+            </div>
             <p className="font-ui text-xl font-bold" style={{ color: TYPE_COLORS[CREATURES[unlockedCreature]?.type]?.light }}>
               {CREATURES[unlockedCreature]?.name}
             </p>

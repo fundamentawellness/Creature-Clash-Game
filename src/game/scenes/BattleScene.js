@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 import { TYPE_COLORS } from '../../data/types.js'
 import { MOVES } from '../../data/moves.js'
-import { executeTurn, createBattleCreature, isBattleOver } from '../../systems/battleEngine.js'
+import { CREATURE_SPRITES } from '../../data/creatureAssets.js'
 
 // Layout constants
 const W = 800
@@ -10,8 +10,8 @@ const PLAYER_X = 200
 const PLAYER_Y = 300
 const ENEMY_X = 600
 const ENEMY_Y = 160
-const CREATURE_SIZE = 60
-const ENEMY_SCALE = 0.8
+const PLAYER_SPRITE_SIZE = 220 // display size for player creature
+const ENEMY_SPRITE_SIZE = 190  // slightly smaller for enemy (farther away)
 
 // HP bar color thresholds
 function hpColor(pct) {
@@ -22,351 +22,6 @@ function hpColor(pct) {
 
 function hexToNum(hex) {
   return parseInt(hex.replace('#', ''), 16)
-}
-
-// Draw a procedural creature shape
-function drawCreature(graphics, shape, color, size) {
-  const c = hexToNum(color)
-  const darkC = Phaser.Display.Color.IntegerToColor(c).darken(30).color
-  graphics.clear()
-
-  switch (shape) {
-    case 'wolf': case 'fox':
-      // Body
-      graphics.fillStyle(c, 1)
-      graphics.fillEllipse(0, 0, size * 1.3, size * 0.9)
-      // Head
-      graphics.fillEllipse(size * 0.5, -size * 0.2, size * 0.6, size * 0.5)
-      // Ears
-      graphics.fillTriangle(size * 0.55, -size * 0.55, size * 0.35, -size * 0.2, size * 0.7, -size * 0.25)
-      graphics.fillTriangle(size * 0.75, -size * 0.5, size * 0.55, -size * 0.15, size * 0.9, -size * 0.2)
-      // Tail
-      graphics.fillStyle(darkC, 1)
-      graphics.fillEllipse(-size * 0.65, -size * 0.15, size * 0.5, size * 0.2)
-      // Eye
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(size * 0.6, -size * 0.25, 4)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(size * 0.62, -size * 0.25, 2)
-      break
-
-    case 'tortoise':
-      // Shell
-      graphics.fillStyle(darkC, 1)
-      graphics.fillEllipse(0, -size * 0.1, size * 1.4, size * 1.1)
-      // Shell highlight
-      graphics.fillStyle(c, 1)
-      graphics.fillEllipse(0, -size * 0.15, size * 1.1, size * 0.8)
-      // Head
-      graphics.fillEllipse(size * 0.6, size * 0.05, size * 0.4, size * 0.35)
-      // Legs
-      graphics.fillStyle(darkC, 1)
-      graphics.fillEllipse(-size * 0.4, size * 0.35, size * 0.25, size * 0.2)
-      graphics.fillEllipse(size * 0.3, size * 0.35, size * 0.25, size * 0.2)
-      // Eye
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(size * 0.7, -size * 0.02, 3)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(size * 0.72, -size * 0.02, 1.5)
-      break
-
-    case 'hawk': case 'owl': case 'moth':
-      // Body
-      graphics.fillStyle(c, 1)
-      graphics.fillEllipse(0, size * 0.1, size * 0.7, size * 0.9)
-      // Wings
-      graphics.fillStyle(darkC, 1)
-      graphics.fillTriangle(-size * 0.35, 0, -size * 0.9, -size * 0.4, -size * 0.2, size * 0.3)
-      graphics.fillTriangle(size * 0.35, 0, size * 0.9, -size * 0.4, size * 0.2, size * 0.3)
-      // Head
-      graphics.fillStyle(c, 1)
-      graphics.fillCircle(0, -size * 0.35, size * 0.3)
-      // Beak
-      graphics.fillStyle(0xf6e05e, 1)
-      graphics.fillTriangle(0, -size * 0.25, -size * 0.08, -size * 0.35, size * 0.08, -size * 0.35)
-      // Eyes
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(-size * 0.1, -size * 0.38, 3)
-      graphics.fillCircle(size * 0.1, -size * 0.38, 3)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(-size * 0.09, -size * 0.38, 1.5)
-      graphics.fillCircle(size * 0.11, -size * 0.38, 1.5)
-      break
-
-    case 'dolphin': case 'serpent':
-      // Body curve
-      graphics.fillStyle(c, 1)
-      graphics.fillEllipse(0, 0, size * 1.5, size * 0.6)
-      // Head
-      graphics.fillEllipse(size * 0.6, -size * 0.05, size * 0.5, size * 0.4)
-      // Tail fin
-      graphics.fillStyle(darkC, 1)
-      graphics.fillTriangle(-size * 0.75, 0, -size * 1.0, -size * 0.3, -size * 1.0, size * 0.3)
-      // Dorsal fin
-      graphics.fillTriangle(0, -size * 0.3, -size * 0.15, 0, size * 0.15, 0)
-      // Eye
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(size * 0.7, -size * 0.1, 3)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(size * 0.72, -size * 0.1, 1.5)
-      break
-
-    case 'crab':
-      // Body
-      graphics.fillStyle(c, 1)
-      graphics.fillEllipse(0, 0, size * 1.2, size * 0.8)
-      // Claws
-      graphics.fillStyle(darkC, 1)
-      graphics.fillCircle(-size * 0.7, -size * 0.15, size * 0.22)
-      graphics.fillCircle(size * 0.7, -size * 0.15, size * 0.22)
-      // Legs
-      for (let i = 0; i < 3; i++) {
-        const ly = size * 0.1 + i * size * 0.15
-        graphics.fillRect(-size * 0.7, ly, size * 0.3, 3)
-        graphics.fillRect(size * 0.4, ly, size * 0.3, 3)
-      }
-      // Eyes
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(-size * 0.2, -size * 0.25, 4)
-      graphics.fillCircle(size * 0.2, -size * 0.25, 4)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(-size * 0.18, -size * 0.25, 2)
-      graphics.fillCircle(size * 0.22, -size * 0.25, 2)
-      break
-
-    case 'bull': case 'rhino': case 'ram':
-      // Body
-      graphics.fillStyle(c, 1)
-      graphics.fillEllipse(0, size * 0.05, size * 1.4, size * 0.9)
-      // Head
-      graphics.fillEllipse(size * 0.55, -size * 0.1, size * 0.55, size * 0.5)
-      // Horns
-      graphics.fillStyle(0xcbd5e0, 1)
-      graphics.fillTriangle(size * 0.5, -size * 0.4, size * 0.35, -size * 0.65, size * 0.6, -size * 0.3)
-      graphics.fillTriangle(size * 0.7, -size * 0.35, size * 0.85, -size * 0.6, size * 0.8, -size * 0.25)
-      // Legs
-      graphics.fillStyle(darkC, 1)
-      graphics.fillRect(-size * 0.35, size * 0.3, size * 0.15, size * 0.25)
-      graphics.fillRect(size * 0.2, size * 0.3, size * 0.15, size * 0.25)
-      // Eye
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(size * 0.65, -size * 0.15, 4)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(size * 0.67, -size * 0.15, 2)
-      break
-
-    case 'ferret':
-      // Long body
-      graphics.fillStyle(c, 1)
-      graphics.fillEllipse(0, 0, size * 1.6, size * 0.5)
-      // Head
-      graphics.fillCircle(size * 0.65, -size * 0.05, size * 0.25)
-      // Tail
-      graphics.fillStyle(darkC, 1)
-      graphics.fillEllipse(-size * 0.8, -size * 0.1, size * 0.35, size * 0.15)
-      // Eye
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(size * 0.72, -size * 0.1, 3)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(size * 0.74, -size * 0.1, 1.5)
-      break
-
-    case 'boulder': case 'golem': case 'titan':
-      // Main body rock
-      graphics.fillStyle(darkC, 1)
-      graphics.fillRoundedRect(-size * 0.55, -size * 0.5, size * 1.1, size * 1.0, size * 0.2)
-      // Highlight facets
-      graphics.fillStyle(c, 1)
-      graphics.fillRoundedRect(-size * 0.4, -size * 0.4, size * 0.8, size * 0.7, size * 0.15)
-      // Cracks
-      graphics.lineStyle(2, 0x1a202c, 0.5)
-      graphics.lineBetween(-size * 0.2, -size * 0.3, size * 0.1, size * 0.2)
-      graphics.lineBetween(size * 0.1, -size * 0.2, -size * 0.15, size * 0.1)
-      // Eyes
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(-size * 0.15, -size * 0.15, 5)
-      graphics.fillCircle(size * 0.15, -size * 0.15, 5)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(-size * 0.13, -size * 0.15, 2.5)
-      graphics.fillCircle(size * 0.17, -size * 0.15, 2.5)
-      break
-
-    case 'blob':
-      // Blobby shape
-      graphics.fillStyle(c, 0.8)
-      graphics.fillCircle(0, 0, size * 0.55)
-      graphics.fillEllipse(-size * 0.2, size * 0.15, size * 0.4, size * 0.3)
-      graphics.fillEllipse(size * 0.25, size * 0.1, size * 0.3, size * 0.25)
-      // Drips
-      graphics.fillStyle(darkC, 0.6)
-      graphics.fillEllipse(-size * 0.3, size * 0.35, size * 0.15, size * 0.2)
-      graphics.fillEllipse(size * 0.15, size * 0.4, size * 0.12, size * 0.18)
-      // Eyes
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(-size * 0.12, -size * 0.1, 5)
-      graphics.fillCircle(size * 0.12, -size * 0.1, 5)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(-size * 0.1, -size * 0.1, 2.5)
-      graphics.fillCircle(size * 0.14, -size * 0.1, 2.5)
-      break
-
-    case 'frog':
-      // Body
-      graphics.fillStyle(c, 1)
-      graphics.fillEllipse(0, size * 0.05, size * 0.9, size * 0.7)
-      // Head
-      graphics.fillEllipse(0, -size * 0.25, size * 0.7, size * 0.45)
-      // Legs tucked
-      graphics.fillStyle(darkC, 1)
-      graphics.fillEllipse(-size * 0.4, size * 0.2, size * 0.3, size * 0.2)
-      graphics.fillEllipse(size * 0.4, size * 0.2, size * 0.3, size * 0.2)
-      // Eyes (big frog eyes)
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(-size * 0.18, -size * 0.35, 6)
-      graphics.fillCircle(size * 0.18, -size * 0.35, 6)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(-size * 0.16, -size * 0.35, 3)
-      graphics.fillCircle(size * 0.2, -size * 0.35, 3)
-      break
-
-    case 'jaw':
-      // Body
-      graphics.fillStyle(c, 1)
-      graphics.fillRoundedRect(-size * 0.45, -size * 0.3, size * 0.9, size * 0.7, size * 0.1)
-      // Upper jaw
-      graphics.fillStyle(darkC, 1)
-      graphics.fillTriangle(-size * 0.45, -size * 0.1, size * 0.45, -size * 0.1, 0, -size * 0.55)
-      // Teeth
-      graphics.fillStyle(0xffffff, 1)
-      for (let i = -2; i <= 2; i++) {
-        graphics.fillTriangle(i * size * 0.15, -size * 0.1, i * size * 0.15 - 4, -size * 0.22, i * size * 0.15 + 4, -size * 0.22)
-      }
-      // Eyes
-      graphics.fillCircle(-size * 0.15, -size * 0.2, 4)
-      graphics.fillCircle(size * 0.15, -size * 0.2, 4)
-      graphics.fillStyle(0xff0000, 1)
-      graphics.fillCircle(-size * 0.13, -size * 0.2, 2)
-      graphics.fillCircle(size * 0.17, -size * 0.2, 2)
-      break
-
-    case 'armadillo':
-      // Shell bands
-      graphics.fillStyle(darkC, 1)
-      graphics.fillEllipse(0, 0, size * 1.2, size * 0.85)
-      graphics.fillStyle(c, 1)
-      for (let i = -2; i <= 2; i++) {
-        graphics.fillRect(-size * 0.5, i * size * 0.12 - size * 0.04, size * 1.0, size * 0.06)
-      }
-      // Head poking out
-      graphics.fillEllipse(size * 0.55, size * 0.05, size * 0.35, size * 0.3)
-      // Eye
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(size * 0.62, -size * 0.02, 3)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(size * 0.64, -size * 0.02, 1.5)
-      break
-
-    case 'mole':
-      // Body
-      graphics.fillStyle(c, 1)
-      graphics.fillEllipse(0, size * 0.05, size * 1.0, size * 0.7)
-      // Snout
-      graphics.fillEllipse(size * 0.4, size * 0.1, size * 0.35, size * 0.25)
-      // Nose
-      graphics.fillStyle(0xfc8181, 1)
-      graphics.fillCircle(size * 0.55, size * 0.08, 4)
-      // Claws
-      graphics.fillStyle(darkC, 1)
-      graphics.fillEllipse(-size * 0.35, size * 0.25, size * 0.3, size * 0.15)
-      graphics.fillEllipse(size * 0.1, size * 0.25, size * 0.3, size * 0.15)
-      // Eyes (tiny)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(size * 0.3, -size * 0.02, 2)
-      break
-
-    case 'bear':
-      // Body
-      graphics.fillStyle(c, 1)
-      graphics.fillEllipse(0, size * 0.05, size * 1.2, size * 1.0)
-      // Head
-      graphics.fillCircle(0, -size * 0.4, size * 0.35)
-      // Ears
-      graphics.fillStyle(darkC, 1)
-      graphics.fillCircle(-size * 0.25, -size * 0.6, size * 0.12)
-      graphics.fillCircle(size * 0.25, -size * 0.6, size * 0.12)
-      // Snout
-      graphics.fillStyle(0xcbd5e0, 0.4)
-      graphics.fillEllipse(0, -size * 0.32, size * 0.2, size * 0.13)
-      // Eyes
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(-size * 0.12, -size * 0.45, 4)
-      graphics.fillCircle(size * 0.12, -size * 0.45, 4)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(-size * 0.1, -size * 0.45, 2)
-      graphics.fillCircle(size * 0.14, -size * 0.45, 2)
-      break
-
-    case 'sprite': case 'vine':
-    default:
-      // Generic magical creature
-      graphics.fillStyle(c, 1)
-      graphics.fillCircle(0, 0, size * 0.4)
-      // Floating wisps
-      graphics.fillStyle(c, 0.5)
-      graphics.fillCircle(-size * 0.3, -size * 0.25, size * 0.15)
-      graphics.fillCircle(size * 0.35, -size * 0.2, size * 0.12)
-      graphics.fillCircle(-size * 0.15, size * 0.3, size * 0.1)
-      // Eyes
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(-size * 0.1, -size * 0.05, 4)
-      graphics.fillCircle(size * 0.1, -size * 0.05, 4)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(-size * 0.08, -size * 0.05, 2)
-      graphics.fillCircle(size * 0.12, -size * 0.05, 2)
-      break
-
-    case 'viper':
-      // Coiled body
-      graphics.fillStyle(c, 1)
-      graphics.fillEllipse(0, size * 0.1, size * 1.0, size * 0.6)
-      // Head raised
-      graphics.fillStyle(c, 1)
-      graphics.fillEllipse(size * 0.3, -size * 0.25, size * 0.4, size * 0.3)
-      // Fangs
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillTriangle(size * 0.4, -size * 0.1, size * 0.37, -size * 0.02, size * 0.43, -size * 0.02)
-      graphics.fillTriangle(size * 0.5, -size * 0.1, size * 0.47, -size * 0.02, size * 0.53, -size * 0.02)
-      // Pattern
-      graphics.fillStyle(darkC, 1)
-      graphics.fillCircle(-size * 0.15, size * 0.1, size * 0.08)
-      graphics.fillCircle(size * 0.05, size * 0.15, size * 0.06)
-      graphics.fillCircle(-size * 0.3, size * 0.05, size * 0.06)
-      // Eyes
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(size * 0.35, -size * 0.3, 3)
-      graphics.fillStyle(0xff0000, 1)
-      graphics.fillCircle(size * 0.37, -size * 0.3, 1.5)
-      break
-
-    case 'beast':
-      // Stocky quadruped
-      graphics.fillStyle(c, 1)
-      graphics.fillEllipse(0, 0, size * 1.3, size * 0.8)
-      // Head
-      graphics.fillEllipse(size * 0.5, -size * 0.15, size * 0.5, size * 0.4)
-      // Legs
-      graphics.fillStyle(darkC, 1)
-      graphics.fillRect(-size * 0.4, size * 0.25, size * 0.15, size * 0.25)
-      graphics.fillRect(-size * 0.1, size * 0.25, size * 0.15, size * 0.25)
-      graphics.fillRect(size * 0.15, size * 0.25, size * 0.15, size * 0.25)
-      graphics.fillRect(size * 0.35, size * 0.25, size * 0.15, size * 0.25)
-      // Eye
-      graphics.fillStyle(0xffffff, 1)
-      graphics.fillCircle(size * 0.6, -size * 0.2, 4)
-      graphics.fillStyle(0x000000, 1)
-      graphics.fillCircle(size * 0.62, -size * 0.2, 2)
-      break
-  }
 }
 
 // Particle colors per type
@@ -400,13 +55,31 @@ export class BattleScene extends Phaser.Scene {
     this.logLines = []
   }
 
+  preload() {
+    // Load sprites for all creatures in both teams
+    const allCreatures = [...this.playerTeam, ...this.aiTeam]
+    for (const creature of allCreatures) {
+      if (!creature) continue
+      const sprites = CREATURE_SPRITES[creature.id]
+      if (sprites?.idle) {
+        this.load.image(`${creature.id}-idle`, sprites.idle)
+      }
+      if (sprites?.attack) {
+        this.load.image(`${creature.id}-attack`, sprites.attack)
+      }
+    }
+  }
+
   create() {
-    // Background gradient
     this.drawBackground()
 
-    // Create containers for creatures
-    this.playerContainer = this.add.container(PLAYER_X, PLAYER_Y)
-    this.enemyContainer = this.add.container(ENEMY_X, ENEMY_Y)
+    // Type-colored shadows beneath creatures (drawn before sprites)
+    this.playerShadow = this.add.graphics()
+    this.enemyShadow = this.add.graphics()
+
+    // Creature sprites (not containers with Graphics — real Phaser.Image objects)
+    this.playerSprite = null
+    this.enemySprite = null
 
     // Draw initial creatures
     this.drawPlayerCreature()
@@ -418,14 +91,8 @@ export class BattleScene extends Phaser.Scene {
     // Battle log
     this.createBattleLog()
 
-    // Move buttons (hidden initially, shown after setup)
+    // Move buttons
     this.createMoveButtons()
-
-    // Platform shadows
-    this.drawPlatforms()
-
-    // Start idle animations
-    this.startIdleAnimations()
 
     // Initial log
     this.addLogLine(`Battle start! Go, ${this.getPlayerCreature().name}!`)
@@ -438,12 +105,11 @@ export class BattleScene extends Phaser.Scene {
   }
 
   drawBackground() {
-    // Battlefield gradient
     const bg = this.add.graphics()
     bg.fillGradientStyle(0x0f172a, 0x0f172a, 0x1e293b, 0x1e293b, 1)
     bg.fillRect(0, 0, W, H)
 
-    // Ground line
+    // Ground plane
     bg.fillStyle(0x1a202c, 1)
     bg.fillRect(0, H * 0.72, W, H * 0.28)
 
@@ -457,98 +123,107 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  drawPlatforms() {
-    const pg = this.add.graphics()
-    // Player platform
-    pg.fillStyle(0x2d3748, 0.6)
-    pg.fillEllipse(PLAYER_X, PLAYER_Y + CREATURE_SIZE * 0.5, CREATURE_SIZE * 2, CREATURE_SIZE * 0.4)
-    // Enemy platform
-    pg.fillStyle(0x2d3748, 0.6)
-    pg.fillEllipse(ENEMY_X, ENEMY_Y + CREATURE_SIZE * ENEMY_SCALE * 0.5, CREATURE_SIZE * 1.6, CREATURE_SIZE * 0.3)
-  }
-
   getPlayerCreature() { return this.playerTeam[this.playerActiveIdx] }
   getAiCreature() { return this.aiTeam[this.aiActiveIdx] }
 
+  // ===================== CREATURE SPRITE RENDERING =====================
+
+  drawShadow(gfx, x, y, spriteWidth, typeColor) {
+    gfx.clear()
+    const color = hexToNum(typeColor || '#334155')
+    gfx.fillStyle(color, 0.2)
+    gfx.fillEllipse(x, y + 10, spriteWidth * 0.6, spriteWidth * 0.12)
+  }
+
+  drawFallbackCreature(x, y, size, creature) {
+    // Colored circle with first letter — for custom creatures without art
+    console.warn(`Missing sprite for ${creature.id}, using fallback`)
+    const colors = TYPE_COLORS[creature.type] || { accent: '#718096', dark: '#4a5568' }
+    const gfx = this.add.graphics()
+    gfx.fillStyle(hexToNum(colors.dark), 1)
+    gfx.fillCircle(0, 0, size * 0.35)
+    gfx.fillStyle(hexToNum(colors.accent), 0.8)
+    gfx.fillCircle(0, 0, size * 0.28)
+    gfx.setPosition(x, y)
+
+    const letter = this.add.text(x, y, creature.name.charAt(0).toUpperCase(), {
+      fontSize: `${Math.round(size * 0.3)}px`, fontFamily: 'Rajdhani', fontStyle: 'bold', color: '#ffffff',
+    }).setOrigin(0.5)
+
+    // Return a container so it can be tweened like a sprite
+    const container = this.add.container(x, y, [gfx, letter])
+    gfx.setPosition(0, 0)
+    letter.setPosition(0, 0)
+    container.setSize(size, size)
+    return container
+  }
+
   drawPlayerCreature() {
-    this.playerContainer.removeAll(true)
+    // Clean up old sprite
+    if (this.playerSprite) {
+      this.playerSprite.destroy()
+      this.playerSprite = null
+    }
+
     const creature = this.getPlayerCreature()
     if (!creature || creature.fainted) return
 
-    const g = this.add.graphics()
-    drawCreature(g, creature.shape, TYPE_COLORS[creature.type]?.accent || '#718096', CREATURE_SIZE)
-    this.playerContainer.add(g)
-    this.playerContainer.setScale(1)
-    this.playerContainer.setAlpha(1)
+    const hasSprite = this.textures.exists(`${creature.id}-idle`)
+    const colors = TYPE_COLORS[creature.type] || { accent: '#718096' }
 
-    // Glow
-    const glow = this.add.graphics()
-    glow.fillStyle(hexToNum(TYPE_COLORS[creature.type]?.accent || '#718096'), 0.15)
-    glow.fillCircle(0, 0, CREATURE_SIZE * 0.8)
-    this.playerContainer.addAt(glow, 0)
-    this.playerGlow = glow
+    if (hasSprite) {
+      this.playerSprite = this.add.image(PLAYER_X, PLAYER_Y, `${creature.id}-idle`)
+      this.playerSprite.setDisplaySize(PLAYER_SPRITE_SIZE, PLAYER_SPRITE_SIZE)
+      this.playerSprite.setOrigin(0.5, 0.7) // anchor lower so shadow sits right
+    } else {
+      this.playerSprite = this.drawFallbackCreature(PLAYER_X, PLAYER_Y, PLAYER_SPRITE_SIZE, creature)
+    }
+
+    // Shadow
+    this.drawShadow(this.playerShadow, PLAYER_X, PLAYER_Y + PLAYER_SPRITE_SIZE * 0.15, PLAYER_SPRITE_SIZE, colors.accent)
+
+    // Start idle bob
+    this.startIdleBob(this.playerSprite, PLAYER_Y, 3, 2000)
   }
 
   drawEnemyCreature() {
-    this.enemyContainer.removeAll(true)
+    if (this.enemySprite) {
+      this.enemySprite.destroy()
+      this.enemySprite = null
+    }
+
     const creature = this.getAiCreature()
     if (!creature || creature.fainted) return
 
-    const g = this.add.graphics()
-    drawCreature(g, creature.shape, TYPE_COLORS[creature.type]?.accent || '#718096', CREATURE_SIZE * ENEMY_SCALE)
-    g.setScale(-1, 1) // Mirror enemy
-    this.enemyContainer.add(g)
-    this.enemyContainer.setScale(1)
-    this.enemyContainer.setAlpha(1)
+    const hasSprite = this.textures.exists(`${creature.id}-idle`)
+    const colors = TYPE_COLORS[creature.type] || { accent: '#718096' }
 
-    // Glow
-    const glow = this.add.graphics()
-    glow.fillStyle(hexToNum(TYPE_COLORS[creature.type]?.accent || '#718096'), 0.15)
-    glow.fillCircle(0, 0, CREATURE_SIZE * ENEMY_SCALE * 0.8)
-    this.enemyContainer.addAt(glow, 0)
-    this.enemyGlow = glow
+    if (hasSprite) {
+      this.enemySprite = this.add.image(ENEMY_X, ENEMY_Y, `${creature.id}-idle`)
+      this.enemySprite.setDisplaySize(ENEMY_SPRITE_SIZE, ENEMY_SPRITE_SIZE)
+      this.enemySprite.setOrigin(0.5, 0.7)
+      this.enemySprite.setFlipX(true) // Enemy faces left
+    } else {
+      this.enemySprite = this.drawFallbackCreature(ENEMY_X, ENEMY_Y, ENEMY_SPRITE_SIZE, creature)
+    }
+
+    // Shadow
+    this.drawShadow(this.enemyShadow, ENEMY_X, ENEMY_Y + ENEMY_SPRITE_SIZE * 0.1, ENEMY_SPRITE_SIZE, colors.accent)
+
+    // Idle bob
+    this.startIdleBob(this.enemySprite, ENEMY_Y, 3, 2400)
   }
 
-  startIdleAnimations() {
-    // Player creature bob
+  startIdleBob(target, baseY, amplitude, duration) {
+    if (!target) return
     this.tweens.add({
-      targets: this.playerContainer,
-      y: PLAYER_Y - 4,
-      duration: 1500,
+      targets: target,
+      y: baseY - amplitude,
+      duration: duration,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     })
-    // Enemy creature bob
-    this.tweens.add({
-      targets: this.enemyContainer,
-      y: ENEMY_Y - 3,
-      duration: 1800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    })
-    // Glow pulse
-    if (this.playerGlow) {
-      this.tweens.add({
-        targets: this.playerGlow,
-        alpha: 0.08,
-        duration: 1200,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      })
-    }
-    if (this.enemyGlow) {
-      this.tweens.add({
-        targets: this.enemyGlow,
-        alpha: 0.08,
-        duration: 1400,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      })
-    }
   }
 
   // ===================== INFO PANELS =====================
@@ -556,7 +231,7 @@ export class BattleScene extends Phaser.Scene {
   createInfoPanels() {
     // Enemy info — upper left
     this.enemyInfoBg = this.add.graphics()
-    this.drawInfoPanel(this.enemyInfoBg, 20, 20, 220, 65, 'ai')
+    this.drawInfoPanel(this.enemyInfoBg, 20, 20, 220, 65)
     this.enemyNameText = this.add.text(30, 28, '', { fontSize: '15px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: '#e2e8f0' })
     this.enemyLevelText = this.add.text(200, 28, '', { fontSize: '13px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: '#94a3b8', align: 'right' })
     this.enemyHpBarBg = this.add.graphics()
@@ -566,7 +241,7 @@ export class BattleScene extends Phaser.Scene {
 
     // Player info — lower right
     this.playerInfoBg = this.add.graphics()
-    this.drawInfoPanel(this.playerInfoBg, W - 245, H - 155, 225, 70, 'player')
+    this.drawInfoPanel(this.playerInfoBg, W - 245, H - 155, 225, 70)
     this.playerNameText = this.add.text(W - 235, H - 148, '', { fontSize: '15px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: '#e2e8f0' })
     this.playerLevelText = this.add.text(W - 60, H - 148, '', { fontSize: '13px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: '#94a3b8', align: 'right' })
     this.playerHpBarBg = this.add.graphics()
@@ -577,7 +252,7 @@ export class BattleScene extends Phaser.Scene {
     this.updateInfoPanels()
   }
 
-  drawInfoPanel(g, x, y, w, h, side) {
+  drawInfoPanel(g, x, y, w, h) {
     g.clear()
     g.fillStyle(0x1e293b, 0.9)
     g.fillRoundedRect(x, y, w, h, 8)
@@ -612,9 +287,7 @@ export class BattleScene extends Phaser.Scene {
     const pct = curHp / maxHp
 
     if (side === 'player') {
-      const x = W - 235
-      const y = H - 128
-      const barW = 200
+      const x = W - 235, y = H - 128, barW = 200
       this.playerHpBarBg.clear()
       this.playerHpBarBg.fillStyle(0x1a202c, 1)
       this.playerHpBarBg.fillRoundedRect(x, y, barW, 10, 3)
@@ -623,9 +296,7 @@ export class BattleScene extends Phaser.Scene {
       this.playerHpBar.fillRoundedRect(x, y, barW * pct, 10, 3)
       this.playerHpText.setText(`${curHp} / ${maxHp}`)
     } else {
-      const x = 30
-      const y = 58
-      const barW = 195
+      const x = 30, y = 58, barW = 195
       this.enemyHpBarBg.clear()
       this.enemyHpBarBg.fillStyle(0x1a202c, 1)
       this.enemyHpBarBg.fillRoundedRect(x, y, barW, 8, 3)
@@ -646,20 +317,15 @@ export class BattleScene extends Phaser.Scene {
     this.logBg.strokeRoundedRect(10, H - 78, W - 20, 38, 6)
 
     this.logText = this.add.text(20, H - 72, '', {
-      fontSize: '13px',
-      fontFamily: 'Rajdhani',
-      color: '#94a3b8',
-      wordWrap: { width: W - 50 },
-      lineSpacing: 2,
+      fontSize: '13px', fontFamily: 'Rajdhani', color: '#94a3b8',
+      wordWrap: { width: W - 50 }, lineSpacing: 2,
     })
   }
 
   addLogLine(text) {
     this.logLines.push(text)
     if (this.logLines.length > 3) this.logLines.shift()
-    if (this.logText) {
-      this.logText.setText(this.logLines.join('\n'))
-    }
+    if (this.logText) this.logText.setText(this.logLines.join('\n'))
   }
 
   // ===================== MOVE BUTTONS =====================
@@ -772,8 +438,6 @@ export class BattleScene extends Phaser.Scene {
     }
 
     this.moveButtonContainer.setVisible(true)
-
-    // Hide the log bg overlap by raising buttons
     this.logBg.setVisible(false)
     this.logText.setVisible(false)
   }
@@ -813,6 +477,14 @@ export class BattleScene extends Phaser.Scene {
       cardBg.fillRoundedRect(x, y, 150, 80, 6)
       cardBg.lineStyle(1, hexToNum(colors?.accent || '#94a3b8'), 0.6)
       cardBg.strokeRoundedRect(x, y, 150, 80, 6)
+
+      // Mini sprite in card
+      const hasMiniSprite = this.textures.exists(`${creature.id}-idle`)
+      if (hasMiniSprite) {
+        const mini = this.add.image(x + 125, y + 40, `${creature.id}-idle`)
+        mini.setDisplaySize(40, 40)
+        panel.add(mini)
+      }
 
       const nameT = this.add.text(x + 10, y + 8, creature.name, {
         fontSize: '14px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: colors?.light || '#e2e8f0',
@@ -876,6 +548,13 @@ export class BattleScene extends Phaser.Scene {
       cardBg.lineStyle(1, hexToNum(colors?.accent || '#94a3b8'), 0.6)
       cardBg.strokeRoundedRect(x, y, 150, 80, 6)
 
+      // Mini sprite
+      if (this.textures.exists(`${creature.id}-idle`)) {
+        const mini = this.add.image(x + 125, y + 40, `${creature.id}-idle`)
+        mini.setDisplaySize(40, 40)
+        panel.add(mini)
+      }
+
       const nameT = this.add.text(x + 10, y + 8, creature.name, {
         fontSize: '14px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: colors?.light || '#e2e8f0',
       })
@@ -892,7 +571,6 @@ export class BattleScene extends Phaser.Scene {
         this.playerActiveIdx = idx
         this.drawPlayerCreature()
         this.updateInfoPanels()
-        this.startIdleAnimations()
         this.addLogLine(`Go, ${this.getPlayerCreature().name}!`)
         setTimeout(() => this.showMoveButtons(), 500)
       })
@@ -921,7 +599,6 @@ export class BattleScene extends Phaser.Scene {
   }
 
   animateEvent(event, originalDone) {
-    // Safety: ensure onDone always fires even if a tween gets stuck
     let done = false
     const onDone = () => {
       if (done) return
@@ -930,54 +607,88 @@ export class BattleScene extends Phaser.Scene {
       originalDone()
     }
     const safetyTimer = setTimeout(onDone, 3000)
-
     const delay = (ms) => setTimeout(onDone, ms)
 
     switch (event.type) {
       case 'attack': {
         const isPlayer = event.data.creature === 'player'
-        const container = isPlayer ? this.playerContainer : this.enemyContainer
+        const sprite = isPlayer ? this.playerSprite : this.enemySprite
+        if (!sprite) { onDone(); break }
+
         const origX = isPlayer ? PLAYER_X : ENEMY_X
         const lungeX = isPlayer ? origX + 40 : origX - 40
+        const creatureObj = isPlayer ? this.getPlayerCreature() : this.getAiCreature()
 
         this.addLogLine(`${event.data.name} used ${event.data.move}!`)
 
-        // Spawn attack particles
+        // Swap to attack sprite
+        const attackKey = `${creatureObj.id}-attack`
+        const idleKey = `${creatureObj.id}-idle`
+        const hasAttackSprite = this.textures.exists(attackKey)
+        if (hasAttackSprite && sprite.setTexture) {
+          sprite.setTexture(attackKey)
+        }
+
+        // Attack particles
         this.spawnAttackParticles(isPlayer, event.data.moveType)
 
+        // Lunge forward
         this.tweens.add({
-          targets: container,
+          targets: sprite,
           x: lungeX,
-          duration: 150,
-          yoyo: true,
+          duration: 200,
           ease: 'Power2',
-          onComplete: () => delay(200),
+          onComplete: () => {
+            // Hold attack frame 300ms, then slide back and swap to idle
+            setTimeout(() => {
+              this.tweens.add({
+                targets: sprite,
+                x: origX,
+                duration: 200,
+                ease: 'Power2',
+                onComplete: () => {
+                  if (hasAttackSprite && sprite.setTexture && this.textures.exists(idleKey)) {
+                    sprite.setTexture(idleKey)
+                  }
+                  delay(100)
+                },
+              })
+            }, 300)
+          },
         })
         break
       }
 
       case 'damage': {
         const isPlayer = event.data.creature === 'player'
-        const container = isPlayer ? this.playerContainer : this.enemyContainer
+        const sprite = isPlayer ? this.playerSprite : this.enemySprite
+        if (!sprite) { onDone(); break }
 
-        // Flash white
-        this.tweens.add({
-          targets: container,
-          alpha: 0.3,
-          duration: 80,
-          yoyo: true,
-          repeat: 2,
-        })
+        const origX = sprite.x
+
+        // Flash white (tint) 3 times
+        let flashCount = 0
+        const flashInterval = setInterval(() => {
+          if (sprite.setTint) {
+            sprite.setTint(0xffffff)
+            setTimeout(() => { if (sprite.clearTint) sprite.clearTint() }, 80)
+          } else {
+            // Fallback for containers: alpha flash
+            sprite.setAlpha(0.3)
+            setTimeout(() => sprite.setAlpha(1), 80)
+          }
+          flashCount++
+          if (flashCount >= 3) clearInterval(flashInterval)
+        }, 150)
 
         // Shake
-        const origX = container.x
         this.tweens.add({
-          targets: container,
+          targets: sprite,
           x: origX + 6,
           duration: 40,
           yoyo: true,
           repeat: 3,
-          onComplete: () => { container.x = origX },
+          onComplete: () => { sprite.x = origX },
         })
 
         // Animate HP bar
@@ -1001,15 +712,11 @@ export class BattleScene extends Phaser.Scene {
 
           this.tweens.add({
             targets: popup,
-            alpha: 1,
-            y: H / 2 - 40,
-            duration: 300,
-            hold: 600,
-            yoyo: true,
+            alpha: 1, y: H / 2 - 40,
+            duration: 300, hold: 600, yoyo: true,
             onComplete: () => { popup.destroy(); onDone() },
           })
 
-          // Screen shake on super effective
           if (event.data.multiplier > 1) {
             this.cameras.main.shake(200, 0.01)
           }
@@ -1021,11 +728,13 @@ export class BattleScene extends Phaser.Scene {
 
       case 'stab': {
         const isPlayer = event.data.creature === 'player'
-        const container = isPlayer ? this.playerContainer : this.enemyContainer
+        const sprite = isPlayer ? this.playerSprite : this.enemySprite
+        if (!sprite) { onDone(); break }
+
         this.tweens.add({
-          targets: container,
-          scaleX: 1.1,
-          scaleY: 1.1,
+          targets: sprite,
+          scaleX: sprite.scaleX * 1.1,
+          scaleY: sprite.scaleY * 1.1,
           duration: 150,
           yoyo: true,
           ease: 'Power2',
@@ -1042,11 +751,8 @@ export class BattleScene extends Phaser.Scene {
 
         this.tweens.add({
           targets: popup,
-          alpha: 1,
-          y: H / 2 - 20,
-          duration: 200,
-          hold: 500,
-          yoyo: true,
+          alpha: 1, y: H / 2 - 20,
+          duration: 200, hold: 500, yoyo: true,
           onComplete: () => { popup.destroy(); onDone() },
         })
         break
@@ -1054,73 +760,84 @@ export class BattleScene extends Phaser.Scene {
 
       case 'faint': {
         const isPlayer = event.data.creature === 'player'
-        const container = isPlayer ? this.playerContainer : this.enemyContainer
+        const sprite = isPlayer ? this.playerSprite : this.enemySprite
+        const shadow = isPlayer ? this.playerShadow : this.enemyShadow
+        if (!sprite) { onDone(); break }
+
         this.addLogLine(`${event.data.name} fainted!`)
 
         this.tweens.add({
-          targets: container,
-          scaleX: 0,
-          scaleY: 0,
+          targets: sprite,
           alpha: 0,
+          scaleY: 0,
           duration: 500,
           ease: 'Power2',
-          onComplete: () => delay(300),
+          onComplete: () => {
+            shadow.clear()
+            delay(300)
+          },
         })
         break
       }
 
       case 'switch': {
         const isPlayer = event.data.creature === 'player'
-        const container = isPlayer ? this.playerContainer : this.enemyContainer
+        const sprite = isPlayer ? this.playerSprite : this.enemySprite
 
         this.addLogLine(`${event.data.fromName} withdrew! Go, ${event.data.toName}!`)
 
-        // Fade out old
-        this.tweens.add({
-          targets: container,
-          alpha: 0,
-          scaleX: 0.5,
-          scaleY: 0.5,
-          duration: 300,
-          onComplete: () => {
-            if (isPlayer) {
-              this.playerActiveIdx = event.data.newIndex
-              this.drawPlayerCreature()
-            } else {
-              this.aiActiveIdx = event.data.newIndex
-              this.drawEnemyCreature()
-            }
-            this.updateInfoPanels()
+        const fadeOut = () => {
+          if (!sprite) {
+            doSwitch()
+            return
+          }
+          this.tweens.add({
+            targets: sprite,
+            alpha: 0, scaleX: 0.5, scaleY: 0.5,
+            duration: 300,
+            onComplete: doSwitch,
+          })
+        }
 
-            // Grow in new
-            container.setScale(0.3)
-            container.setAlpha(0)
+        const doSwitch = () => {
+          if (isPlayer) {
+            this.playerActiveIdx = event.data.newIndex
+            this.drawPlayerCreature()
+          } else {
+            this.aiActiveIdx = event.data.newIndex
+            this.drawEnemyCreature()
+          }
+          this.updateInfoPanels()
+
+          const newSprite = isPlayer ? this.playerSprite : this.enemySprite
+          if (newSprite) {
+            // Save the correct final scale set by setDisplaySize, then animate from half
+            const finalScaleX = newSprite.scaleX
+            const finalScaleY = newSprite.scaleY
+            newSprite.setAlpha(0)
+            newSprite.scaleX = finalScaleX * 0.5
+            newSprite.scaleY = finalScaleY * 0.5
             this.tweens.add({
-              targets: container,
-              alpha: 1,
-              scaleX: 1,
-              scaleY: 1,
+              targets: newSprite,
+              alpha: 1, scaleX: finalScaleX, scaleY: finalScaleY,
               duration: 400,
               ease: 'Back.easeOut',
-              onComplete: () => {
-                this.startIdleAnimations()
-                delay(200)
-              },
+              onComplete: () => delay(200),
             })
-          },
-        })
+          } else {
+            delay(200)
+          }
+        }
+
+        fadeOut()
         break
       }
 
       case 'forceSwitch': {
         const isPlayer = event.data.creature === 'player'
         if (isPlayer && event.data.needsSelection) {
-          // Player needs to choose — show panel after a short delay
-          setTimeout(() => {
-            this.showForceSwitchPanel()
-          }, 300)
-          // Don't call onDone — the panel callback handles flow
-          return
+          setTimeout(() => this.showForceSwitchPanel(), 300)
+          return // Panel callback handles flow
         }
         if (!isPlayer && event.data.newIndex !== null) {
           this.aiActiveIdx = event.data.newIndex
@@ -1128,19 +845,24 @@ export class BattleScene extends Phaser.Scene {
           this.drawEnemyCreature()
           this.updateInfoPanels()
 
-          this.enemyContainer.setScale(0.3).setAlpha(0)
-          this.tweens.add({
-            targets: this.enemyContainer,
-            alpha: 1,
-            scaleX: 1,
-            scaleY: 1,
-            duration: 400,
-            ease: 'Back.easeOut',
-            onComplete: () => {
-              this.startIdleAnimations()
-              delay(300)
-            },
-          })
+          if (this.enemySprite) {
+            const fsx = this.enemySprite.scaleX
+            const fsy = this.enemySprite.scaleY
+            this.enemySprite.setAlpha(0)
+            this.enemySprite.scaleX = fsx * 0.5
+            this.enemySprite.scaleY = fsy * 0.5
+            this.tweens.add({
+              targets: this.enemySprite,
+              alpha: 1,
+              scaleX: fsx,
+              scaleY: fsy,
+              duration: 400,
+              ease: 'Back.easeOut',
+              onComplete: () => delay(300),
+            })
+          } else {
+            delay(300)
+          }
         } else {
           onDone()
         }
@@ -1149,7 +871,7 @@ export class BattleScene extends Phaser.Scene {
 
       case 'statChange': {
         const isPlayer = event.data.creature === 'player'
-        const container = isPlayer ? this.playerContainer : this.enemyContainer
+        const sprite = isPlayer ? this.playerSprite : this.enemySprite
         const change = event.data.change
         if (change === 0) { onDone(); break }
 
@@ -1160,17 +882,17 @@ export class BattleScene extends Phaser.Scene {
         const desc = `${event.data.name}'s ${statLabel} ${up ? 'rose' : 'fell'}!`
         this.addLogLine(desc)
 
-        const arrow = this.add.text(container.x, container.y - 40, `${arrowText} ${statLabel}`, {
+        const sx = sprite ? sprite.x : (isPlayer ? PLAYER_X : ENEMY_X)
+        const sy = sprite ? sprite.y : (isPlayer ? PLAYER_Y : ENEMY_Y)
+
+        const arrow = this.add.text(sx, sy - 40, `${arrowText} ${statLabel}`, {
           fontSize: '14px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: arrowColor,
         }).setOrigin(0.5).setAlpha(0)
 
         this.tweens.add({
           targets: arrow,
-          alpha: 1,
-          y: container.y - 65,
-          duration: 400,
-          hold: 400,
-          yoyo: true,
+          alpha: 1, y: sy - 65,
+          duration: 400, hold: 400, yoyo: true,
           onComplete: () => { arrow.destroy(); onDone() },
         })
         break
@@ -1190,7 +912,6 @@ export class BattleScene extends Phaser.Scene {
   }
 
   tweenHpBar(side, creature, onDone) {
-    // Directly update HP bar with a visual tween feel
     this.updateHpBar(side, creature)
     if (onDone) setTimeout(onDone, 250)
   }
@@ -1215,9 +936,7 @@ export class BattleScene extends Phaser.Scene {
         targets: particle,
         x: targetX + (Math.random() - 0.5) * 50,
         y: targetY + (Math.random() - 0.5) * 40,
-        alpha: 0,
-        scaleX: 0.3,
-        scaleY: 0.3,
+        alpha: 0, scaleX: 0.3, scaleY: 0.3,
         duration: 350 + Math.random() * 200,
         delay: i * 30,
         ease: 'Power2',
@@ -1244,7 +963,6 @@ export class BattleScene extends Phaser.Scene {
         return
       }
 
-      // Check if player needs forced switch
       const playerNeedsSwitch = result.events.some(
         e => e.type === 'forceSwitch' && e.data.creature === 'player' && e.data.needsSelection
       )
