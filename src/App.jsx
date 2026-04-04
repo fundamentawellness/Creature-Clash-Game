@@ -56,7 +56,6 @@ function App() {
   const [screen, setScreen] = useState('title')
   const [gameState, setGameState] = useState(null)
   const [battleResult, setBattleResult] = useState(null)
-  const [selectedTeam, setSelectedTeam] = useState([])
   const [currentBattleInfo, setCurrentBattleInfo] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [battleKey, setBattleKey] = useState(0)
@@ -93,10 +92,6 @@ function App() {
   }, [transitionTo])
 
   const handleContinue = useCallback(() => {
-    // Restore last team from save
-    if (gameState?.lastTeam?.length > 0) {
-      setSelectedTeam(gameState.lastTeam)
-    }
     if (gameState?.campaign?.playerName) {
       transitionTo('campaignMap')
     } else {
@@ -106,9 +101,6 @@ function App() {
 
   const handleImportComplete = useCallback((imported) => {
     setGameState(imported)
-    if (imported?.lastTeam?.length > 0) {
-      setSelectedTeam(imported.lastTeam)
-    }
     if (imported?.campaign?.playerName) {
       transitionTo('campaignMap')
     } else {
@@ -119,7 +111,6 @@ function App() {
   // ===== TEAM / NAME ENTRY =====
 
   const handleTeamConfirm = useCallback((team) => {
-    setSelectedTeam(team)
     setGameState(prev => ({ ...prev, lastTeam: team }))
     // If names not set yet (new game), go to name entry
     if (!gameState?.campaign?.playerName) {
@@ -278,7 +269,6 @@ function App() {
   const handleResetGame = useCallback(() => {
     setGameState(null)
     setBattleResult(null)
-    setSelectedTeam([])
     setCurrentBattleInfo(null)
     setDialogue(null)
     setCreaturePick(null)
@@ -350,7 +340,7 @@ function App() {
           <BattleContainer
             key={battleKey}
             gameState={gameState}
-            selectedTeam={selectedTeam}
+            selectedTeam={gameState?.lastTeam || []}
             battleInfo={currentBattleInfo}
             onBattleEnd={handleBattleEnd}
           />
@@ -360,7 +350,7 @@ function App() {
           <ResultScreen
             result={battleResult}
             gameState={gameState}
-            selectedTeam={selectedTeam}
+            selectedTeam={gameState?.lastTeam || []}
             battleInfo={currentBattleInfo}
             onUpdateGameState={handleUpdateGameState}
             onBattleAgain={handleBattleAgain}
