@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { CREATURES } from '../data/creatures.js'
 import { TYPE_COLORS } from '../data/types.js'
-import { addXp, xpFromFoe, getAvailableNewMove, learnMove, skipMove, createCreatureSaveState, levelForNewUnlock } from '../systems/progression.js'
+import { addXp, xpFromFoe, getAvailableNewMove, learnMove, skipMove, levelForNewUnlock } from '../systems/progression.js'
 import { evolveIfReady, replaceCreatureId } from '../systems/evolution.js'
+import { addCaught, coinsForWin } from '../systems/world.js'
 import { itemRewardForBattle, addItem, ITEMS } from '../data/items.js'
 import EvolutionModal from './EvolutionModal.jsx'
 import { advanceCampaign, trackPlayerTypes, applyRivalReward } from '../systems/campaignManager.js'
@@ -20,6 +21,8 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
   const [processed, setProcessed] = useState(false)
   const [evolutions, setEvolutions] = useState([])
   const [itemReward, setItemReward] = useState(null)
+  const [catchNote, setCatchNote] = useState(null)
+  const [coinsNote, setCoinsNote] = useState(0)
 
   const won = result?.won
   const allCreatures = getAllCreatures(gameState)
@@ -53,6 +56,19 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
 
     // Record total battle win
     updatedState.totalBattlesWon = (updatedState.totalBattlesWon || 0) + 1
+
+    if (result?.caught) {
+      const added = addCaught(updatedState, result.caught.id, result.caught.level)
+      updatedState = added.state
+      setCatchNote(added.duplicate
+        ? `${result.caught.name} is already in your collection. +25 coins.`
+        : `${result.caught.name} was caught!`)
+    }
+    const coins = coinsForWin(battleInfo, !!result?.caught)
+    if (coins) {
+      updatedState.coins = (updatedState.coins || 0) + coins
+      setCoinsNote(coins)
+    }
 
     // Track player types for rival adaptation
     const playerCreatures = selectedTeam.map(id => allCreatures[id]).filter(Boolean)
@@ -139,15 +155,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
             creatureIds: pickPool,
             title: `${gym.leader.name} rewards your victory!`,
             onPick: (pickedId) => {
-              onUpdateGameState(prev => {
-                const next = { ...prev, unlockedCreatureIds: [...prev.unlockedCreatureIds, pickedId] }
-                const template = CREATURES[pickedId]
-                if (template) {
-                  next.creatureProgress = { ...next.creatureProgress }
-                  next.creatureProgress[pickedId] = createCreatureSaveState(pickedId, levelForNewUnlock(next.campaign))
-                }
-                return next
-              })
+              onUpdateGameState(prev => addCaught(prev, pickedId, levelForNewUnlock(prev.campaign)).state)
             },
           })
         }, 500)
@@ -183,15 +191,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
                 creatureIds: pickPool,
                 title: `${rivalName} grudgingly acknowledges your strength!`,
                 onPick: (pickedId) => {
-                  onUpdateGameState(prev => {
-                    const next = { ...prev, unlockedCreatureIds: [...prev.unlockedCreatureIds, pickedId] }
-                    const template = CREATURES[pickedId]
-                    if (template) {
-                      next.creatureProgress = { ...next.creatureProgress }
-                      next.creatureProgress[pickedId] = createCreatureSaveState(pickedId, levelForNewUnlock(next.campaign))
-                    }
-                    return next
-                  })
+                  onUpdateGameState(prev => addCaught(prev, pickedId, levelForNewUnlock(prev.campaign)).state)
                 },
               })
             }, 1800) // After dialogue + reward splash
@@ -363,6 +363,8 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
         </div>
       )}
 
+      {catchNote && <p className="font-ui text-lg text-cyan-200 mt-4 text-center">{catchNote}</p>}
+      {coinsNote > 0 && <p className="font-ui text-base text-amber-300 mt-2">+{coinsNote} coins</p>}
       {itemReward && ITEMS[itemReward] && (
         <p className="font-ui text-base text-amber-300 mt-4">Found a {ITEMS[itemReward].name}!</p>
       )}
@@ -390,7 +392,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
           className="px-8 py-3 rounded-xl font-ui font-bold text-base uppercase tracking-wider
             bg-slate-800 hover:bg-slate-700 border border-slate-600/30
             text-slate-400 hover:text-slate-300 transition-all cursor-pointer">
-          Campaign Map
+          Island Map
         </button>
       </div>
     </div>

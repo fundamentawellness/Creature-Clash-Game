@@ -9,6 +9,7 @@ import { canBeStatused, makeStatus, STATUSES } from '../data/statuses.js'
 import { ITEMS } from '../data/items.js'
 import { getAbility } from '../data/abilities.js'
 import { battleSpeed, endureHit } from './battleMods.js'
+import { catchChance, rollCatch } from './world.js'
 
 /**
  * Create a battle-ready creature from save state.
@@ -409,7 +410,30 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
   const currentPlayer = playerTeam[newPlayerIdx]
   const currentAi = aiTeam[newAiIdx]
 
+  let caught = null
   const playerBag = playerAction.bag
+  if (playerAction.type === 'catch') {
+    const item = ITEMS[playerAction.itemId]
+    const wild = aiTeam[aiActiveIdx]
+    if (!item || item.kind !== 'capture' || !wild || !playerBag || (playerBag[playerAction.itemId] || 0) <= 0) {
+      events.push({ type: 'catch', data: { caught: false, shakes: 0, text: 'No orb to throw!' } })
+    } else {
+      playerBag[playerAction.itemId] -= 1
+      if (playerBag[playerAction.itemId] <= 0) delete playerBag[playerAction.itemId]
+      const hpPercent = wild.currentHp / (wild.currentStats?.hp || 1)
+      const chance = catchChance({ hpPercent, status: wild.status?.id, itemId: playerAction.itemId })
+      const roll = rollCatch(chance)
+      const wobble = roll.shakes === 0 ? 'The orb missed the mark!' : `The orb wobbled ${roll.shakes} time${roll.shakes === 1 ? '' : 's'}...`
+      if (roll.caught) {
+        wild.fainted = true
+        wild.status = null
+        caught = { id: wild.id, level: wild.level, name: wild.name }
+        events.push({ type: 'catch', data: { caught: true, shakes: 3, name: wild.name, text: `${wobble} Gotcha! ${wild.name} joined you!` } })
+      } else {
+        events.push({ type: 'catch', data: { caught: false, shakes: roll.shakes, name: wild.name, text: `${wobble} ${wild.name} broke free!` } })
+      }
+    }
+  }
   if (playerAction.type === 'item') {
     events.push(...applyItemUse(playerTeam, playerAction, 'player', playerBag))
   }
@@ -422,7 +446,7 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
   }
 
   const playerAttacking = playerAction.type === 'attack'
-  const aiAttacking = aiAction.type === 'attack'
+  const aiAttacking = aiAction.type === 'attack' && !caught
 
   if (playerAttacking && aiAttacking) {
     // Both attack — speed determines order
@@ -487,6 +511,7 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
     battleOver: false,
     winner: null,
     cooldowns: { player: playerCooldown, ai: aiCooldown },
+    caught,
   }
 
   // Check for faints and battle end

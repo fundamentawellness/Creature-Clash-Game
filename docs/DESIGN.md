@@ -89,18 +89,17 @@ Each phase should be playable before the next one starts. A kid should be able t
 
 ### Phase 3 — Catching and the first islands
 
-**Goal.** The game stops being only a menu of gyms. You meet wild creatures, catch them, fill a collection book, and sail (or swim) between the first islands.
+**This phase is in the game.** After you name yourself, you open a map of the island chain instead of a list of zones.
 
-**What you can play.** A short voyage: a home island, wild encounters, a collection book that fills in as you catch, and enough of a map to reach the next island once you have a boat or a strong swimmer. Gyms from Phase 1 still work.
+**What you can play.** Greenridge, Cragmoor, Stormreach, and Ironspire are islands. Each one has wild patches, the gyms and rival that used to be that zone, and a small shop. Two more islands sit in the fog for later. A collection book shows every line: caught, seen, or still unknown.
 
-**Features.**
+**How you sail.** Home is always open. Each island's first gym earns a skiff toward the next one. A water creature at level 10 or higher can swim one extra channel, so training Aquafin is another way across. Gyms themselves still unlock in campaign order, so sailing ahead lets you catch creatures before you are allowed to challenge that island's leaders.
 
-- Wild encounters and catching. The roster currently grows only when a leader or rival lets you pick a locked creature (`ResultScreen`). Catching is a new flow: a wild fight, then a catch, then the creature joins the collection at a sensible level.
-- A collection book. The save already remembers which creatures are unlocked. The book is the friendly version of that list: seen, caught, and still missing.
-- A map you can move around, with the first islands. Today's campaign screen is a scroll of zone cards, not a place. The first islands can reuse Greenridge and Cragmoor — their gyms, leaders, and levels — and put them on a map.
-- The crossing rule: no boat and no strong swimmer means the next island stays closed.
+**Catching.** Wild creatures match the island (meadows are grass, the caldera is fire and ground). Weaken one, then throw a **Lure Orb** or a **Sturdy Orb**. Low HP helps. Sleep and freeze help more. A caught creature joins your collection at the level you found it. Your team is still chosen from what you own. Battles also pay coins. Shops sell orbs, potions, and tonics.
 
-**Notes.** There is no walking map and no encounter table in the code. This phase adds them; it does not squeeze them into the gym menu. Art for new creatures can start from the 21 bank pictures already used by the Forge. Battles can keep using the same Phaser scene. The save file will need new fields (caught list, boat, current island). Old saves should keep working.
+**Saves.** Version 4. Creatures you already owned count as caught, and their earlier forms count as seen. You get five Lure Orbs if you didn't have any. Other players' slots stay separate.
+
+**Notes.** Islands live in `src/data/islands.js`. Catch odds and sailing rules live in `src/systems/world.js`. The same battle screen throws the orb.
 
 ### Phase 4 — The full story
 

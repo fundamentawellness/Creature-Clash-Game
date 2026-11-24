@@ -37,6 +37,14 @@ export const ITEMS = {
     id: 'focus_ribbon', name: 'Focus Ribbon', kind: 'held',
     desc: 'Once each battle, survive a knock-out hit with 1 HP.',
   },
+  lure_orb: {
+    id: 'lure_orb', name: 'Lure Orb', kind: 'capture',
+    desc: 'A glass orb that coaxes a weakened wild creature to join you.',
+  },
+  sturdy_orb: {
+    id: 'sturdy_orb', name: 'Sturdy Orb', kind: 'capture',
+    desc: 'A thicker orb. Better odds, especially on a tough catch.',
+  },
 }
 
 export const ITEM_LIST = Object.values(ITEMS)
@@ -46,7 +54,7 @@ export function isHeldItem(itemId) {
 }
 
 export function emptyBag() {
-  return { potion: 2, tonic: 1 }
+  return { potion: 2, tonic: 1, lure_orb: 5 }
 }
 
 /** Story wins hand out a useful item. Replays still drop a potion sometimes. */

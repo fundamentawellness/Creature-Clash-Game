@@ -10,7 +10,7 @@ import BattleControls from './BattleControls.jsx'
 // Shared data store — scene reads on init
 let _pendingBattleData = null
 
-export default function BattleContainer({ gameState, selectedTeam, battleInfo, onBattleEnd, onUpdateGameState }) {
+export default function BattleContainer({ gameState, selectedTeam, battleInfo, onBattleEnd, onUpdateGameState, onMarkSeen }) {
   const containerRef = useRef(null)
   const gameRef = useRef(null)
   const sceneRef = useRef(null)
@@ -24,12 +24,14 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
   const typeChartRef = useRef(null)
   const bagRef = useRef({ ...(gameState?.bag || {}) })
   const onBagRef = useRef(onUpdateGameState)
+  const onSeenRef = useRef(onMarkSeen)
   const [controls, setControls] = useState(null)
   const [logLines, setLogLines] = useState([])
   const [bag, setBag] = useState(() => ({ ...(gameState?.bag || {}) }))
 
   useEffect(() => { onBattleEndRef.current = onBattleEnd }, [onBattleEnd])
   useEffect(() => { onBagRef.current = onUpdateGameState }, [onUpdateGameState])
+  useEffect(() => { onSeenRef.current = onMarkSeen }, [onMarkSeen])
 
   const handlePlayerAction = useCallback((action) => {
     const scene = sceneRef.current
@@ -38,7 +40,7 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
     scene.isAnimating = true
     scene.hideMoveButtons()
 
-    const turnAction = action.type === 'item' ? { ...action, bag: bagRef.current } : action
+    const turnAction = action.type === 'item' || action.type === 'catch' ? { ...action, bag: bagRef.current } : action
     const result = executeTurn(
       turnAction,
       playerTeamRef.current,
@@ -64,7 +66,7 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
 
     // Pass cooldown to scene so it can update switch button state
     scene.playerSwitchCooldown = cooldownsRef.current.player
-    if (turnAction.type === 'item') {
+    if (turnAction.type === 'item' || turnAction.type === 'catch') {
       const nextBag = { ...bagRef.current }
       setBag(nextBag)
       onBagRef.current?.(prev => prev ? { ...prev, bag: nextBag } : prev)
@@ -126,6 +128,8 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
     const aiItems = []
     if (battleInfo.type === 'leader' || battleInfo.type === 'rival') aiItems.push('super_potion')
     else if (battleInfo.zoneId === 'zone3' || battleInfo.zoneId === 'zone4') aiItems.push('potion')
+    onSeenRef.current?.([...playerTeam, ...aiTeam].map(creature => creature.id))
+
     aiConfigRef.current = {
       ...(battleInfo.aiConfig || { optimalChance: 0.5, switchBehavior: 'never', teamBuild: 'random' }),
       items: aiItems,
@@ -220,7 +224,9 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
           typeColors={typeColors}
           typeNames={typeNames}
           bag={bag}
+          wild={!!battleInfo?.wild}
           onAttack={(moveId) => handlePlayerAction({ type: 'attack', moveId })}
+          onCatch={(itemId) => handlePlayerAction({ type: 'catch', itemId })}
           onUseItem={(itemId, targetIndex) => handlePlayerAction({ type: 'item', itemId, targetIndex })}
           onRequestSwitch={() => sceneRef.current?.showSwitchPanel()}
           onCancelSwitch={() => sceneRef.current?.cancelSwitch()}

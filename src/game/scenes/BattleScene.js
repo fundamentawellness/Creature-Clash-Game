@@ -806,7 +806,8 @@ export class BattleScene extends Phaser.Scene {
       case 'statusBlock':
       case 'statusHurt':
       case 'endure':
-      case 'item': {
+      case 'item':
+      case 'catch': {
         const text = event.data.text || event.data.label || ''
         if (text) this.addLogLine(text)
         if (event.type === 'statusHurt' || event.type === 'item') {
@@ -873,7 +874,7 @@ export class BattleScene extends Phaser.Scene {
       if (result.battleOver) {
         this.battleOver = true
         setTimeout(() => {
-          this.onBattleEnd({ won: result.winner === 'player' })
+          this.onBattleEnd({ won: result.winner === 'player', caught: result.caught || null })
         }, 800)
         return
       }
