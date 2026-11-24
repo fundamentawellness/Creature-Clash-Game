@@ -4,6 +4,7 @@ import { TYPE_COLORS } from '../data/types.js'
 import { addXp, xpFromFoe, getAvailableNewMove, learnMove, skipMove, levelForNewUnlock } from '../systems/progression.js'
 import { evolveIfReady, replaceCreatureId } from '../systems/evolution.js'
 import { addCaught, coinsForWin } from '../systems/world.js'
+import { playCue } from '../audio/sound.js'
 import { markCrewDefeated, markEliteBeaten, markChampion } from '../systems/story.js'
 import { itemRewardForBattle, addItem, ITEMS } from '../data/items.js'
 import EvolutionModal from './EvolutionModal.jsx'
@@ -224,6 +225,8 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
       }
     }
 
+    if (results.some(entry => entry.leveledUp)) playCue('level')
+    if (evoQueue.length > 0) playCue('evolve')
     setProcessedResults(results)
     setMoveLearnQueue(learnQueue)
     if (learnQueue.length > 0) {

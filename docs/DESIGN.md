@@ -137,19 +137,15 @@ Scenes live in `src/data/story.js`. A portrait is a simple face, not a new paint
 
 **One-time setup.** Sync the blueprint so Render creates the `battle-arena-rooms` service on the free plan. If the static site's real address is not `https://battle-arena.onrender.com`, set `ALLOWED_ORIGINS` on that service to the real address.
 
-### Phase 6 — Kid creatures, sound, and music
+### Phase 6 — Sound, music, and the kids' creatures
 
-**Goal.** The creatures the kids invented become real parts of the game, and the battles stop being silent.
+**This phase is in the game.** The adventure from the first screen through the champion is the game you play now. Sound and the three legendary pedestals are ready. The kids have not designed those creatures yet, so the pedestals stay hidden until a parent fills them in.
 
-**What you can play.** A finished adventure that includes the special creatures the kids helped design, with sound effects and music.
+**Sound.** Music and effects are generated in the browser. There are no recorded tracks and nothing to license. The map, a battle, and Crownrest each have a short tune. Effects cover a move's type, a hit, a miss, a status, a catch, a level up, an evolution, and menu taps. Settings has music, effects, mute, and Play a note. The choice is saved with that player's file. On a phone the music starts off, so opening the game in a quiet room stays quiet. Nothing plays until the first tap, which is what phones require.
 
-**Features.**
+**The pedestals.** Heart of the Chain, The Sleeper, and Ashwake's Last Spark live in `src/data/legendaries.js`. Each one has a name, type, stats, moves, ability, optional art, and the island where it appears after the champion fight. `ready` is false, so they are not in the collection and cannot be caught. Setting `ready` to true, after the fields are filled in, wakes that pedestal. `docs/ADD_A_CREATURE.md` is the short guide for doing that with the kids. The Forge is still the toy for extra creatures. Promoting one onto a pedestal is a deliberate edit.
 
-- A small set of kid-invented creatures, including the rare ones, placed in the story (an island, a legend, a last fight). They get a name, a type, stats, moves, and a picture. The Forge remains the toy for extra custom fighters. Promoting a kid's idea into the official roster is a deliberate step, so a typo in the Forge does not rewrite the story.
-- Sound effects for hits, dodges, fainting, catching, and badges.
-- Music that can be turned down. Different islands can have different tunes later; one battle theme and one map theme is enough to start.
-
-**Notes.** Sound is switched off in the battle setup on purpose (`src/game/config.js`). Turning it on means adding audio files and a volume control in Settings, and keeping it off until a file is actually there so phones do not play silence or errors. The art bank is the first place to look for pictures before anyone has to draw from scratch.
+**Saves.** Version 6. Older saves gain sound settings and keep their creatures, story, and bag. A brand-new player still starts on Greenridge and can reach Champion Lumen by sailing the chain. The Render blueprint is unchanged: the static site `battle-arena`, and the free room service `battle-arena-rooms`.
 
 ## What we are not doing
 

@@ -5,7 +5,7 @@ import { ITEMS } from '../data/items.js'
 import { rollWild } from '../systems/world.js'
 import { isGymUnlocked, isRivalUnlocked, getNextGymBattle, getGymProgress, buildGymBattleInfo } from '../systems/campaignManager.js'
 import { crewForIsland, crewBattleInfo, nextElite, eliteBattleInfo, championReady, championBattleInfo } from '../systems/story.js'
-import { LEGENDS } from '../data/story.js'
+import { LEGEND_SLOTS, isLegendReady, legendBattle } from '../data/legendaries.js'
 
 export default function IslandScreen({ islandId, gameState, onWild, onSelectBattle, onBack, onShopBuy }) {
   const island = islandById(islandId)
@@ -127,16 +127,9 @@ export default function IslandScreen({ islandId, gameState, onWild, onSelectBatt
                   <p className="font-ui text-lg font-bold text-slate-100">Rematch Champion Lumen</p>
                   <p className="font-ui text-sm text-slate-400">A sharper fight, for after the story.</p>
                 </button>
-                <div className="rounded-2xl border border-yellow-900/40 bg-slate-900/80 px-4 py-3">
-                  <p className="font-ui font-bold text-yellow-100 mb-2">Three empty pedestals</p>
-                  {LEGENDS.map(legend => (
-                    <p key={legend.id} className="font-ui text-sm text-slate-300 mb-2">
-                      <span className="text-yellow-200">{legend.name}.</span> {legend.hint}
-                    </p>
-                  ))}
-                </div>
               </>
             )}
+            <Pedestals island={island} gameState={gameState} onWild={onWild} />
             {!elite && !readyForChampion && !gameState?.story?.champion && (
               <p className="font-ui text-sm text-slate-400">Beat Captain Scoop and the Ashwake rival. Then the wardens will meet you.</p>
             )}
@@ -222,6 +215,35 @@ export default function IslandScreen({ islandId, gameState, onWild, onSelectBatt
           </div>
         </section>
       </div>
+    </div>
+  )
+}
+
+function Pedestals({ island, gameState, onWild }) {
+  const slots = LEGEND_SLOTS.filter(slot => island.champion || slot.where === island.name)
+  if (slots.length === 0) return null
+  return (
+    <div className="rounded-2xl border border-yellow-900/40 bg-slate-900/80 px-4 py-3 mb-2">
+      <p className="font-ui font-bold text-yellow-100 mb-2">Legendary pedestals</p>
+      {slots.map(slot => {
+        const awake = isLegendReady(slot)
+        const battle = awake && gameState?.story?.champion ? legendBattle(slot) : null
+        return (
+          <div key={slot.id} className="mb-3 last:mb-0">
+            <p className="font-ui text-base text-yellow-200">{slot.name}</p>
+            <p className="font-ui text-sm text-slate-300">{awake ? slot.encounter : `${slot.hint} Hidden until a kid designs them.`}</p>
+            {battle && (
+              <button
+                type="button"
+                onClick={() => onWild(battle)}
+                className="mt-2 min-h-12 px-4 rounded-xl bg-yellow-800 text-yellow-50 font-ui font-bold cursor-pointer"
+              >
+                Meet {slot.name}
+              </button>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

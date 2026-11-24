@@ -4,10 +4,11 @@ import { MOVES } from '../data/moves.js'
 import { emptyBag } from '../data/items.js'
 import { createCreatureSaveState, mapLegacyLevel, xpToReachLevel, movesKnownAtLevel } from '../systems/progression.js'
 import { evolveIfReady, replaceCreatureId } from '../systems/evolution.js'
+import { defaultAudioSettings } from '../audio/sound.js'
 
 const LEGACY_SAVE_KEY = 'battle-arena-save'
 const PROFILE_KEY = 'battle-arena-profiles'
-const CURRENT_VERSION = 5
+const CURRENT_VERSION = 6
 const PROFILE_VERSION = 1
 
 export const SLOT_COUNT = 4
@@ -76,6 +77,7 @@ export function getDefaultSave() {
     seenIds: [...STARTER_CREATURE_IDS],
     currentIsland: 'greenridge',
     story: { seen: [], defeated: [], elitesBeaten: [], champion: false, rematch: false },
+    settings: defaultAudioSettings(),
   }
 }
 
@@ -234,6 +236,10 @@ function migrateSave(data) {
       champion: !!story.champion,
       rematch: !!story.rematch,
     }
+  }
+
+  if (!migrated.version || migrated.version < 6) {
+    if (!migrated.settings) migrated.settings = defaultAudioSettings()
   }
 
   // Ensure all expected fields exist with defaults

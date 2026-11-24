@@ -23,6 +23,7 @@ import { markSeen, buyItem } from './systems/world.js'
 import { pendingScene, markSceneSeen } from './systems/story.js'
 import StoryScene from './components/StoryScene.jsx'
 import OnlineMatch from './components/OnlineMatch.jsx'
+import { applyAudioSettings, installAudio, startMusic } from './audio/sound.js'
 import { getNextReplayBattle } from './systems/campaignManager.js'
 
 // Error boundary to prevent crashes from losing save data
@@ -80,6 +81,17 @@ function App() {
 
   // Write the active player's latest game into their slot. This only touches
   // storage; React state is updated by the handlers that change the game.
+  useEffect(() => { installAudio() }, [])
+  useEffect(() => {
+    if (gameState?.settings) applyAudioSettings(gameState.settings)
+  }, [gameState?.settings])
+  useEffect(() => {
+    if (screen === 'battle') startMusic(currentBattleInfo?.type === 'champion' ? 'champion' : 'battle')
+    else if (screen === 'island' && currentIsland === 'crownrest') startMusic('champion')
+    else if (screen === 'profiles') startMusic('map')
+    else startMusic('map')
+  }, [screen, currentIsland, currentBattleInfo])
+
   useEffect(() => {
     if (!profiles || activeSlot == null || !gameState) return
     const slots = profiles.slots.map((slot, i) => i === activeSlot ? { ...slot, save: gameState } : slot)
@@ -570,6 +582,7 @@ function App() {
             onImport={handleImportComplete}
             onReset={handleResetGame}
             slotName={profiles?.slots?.[activeSlot]?.name || ''}
+            onAudio={(settings) => handleUpdateGameState(prev => prev ? { ...prev, settings } : prev)}
           />
         )}
 
