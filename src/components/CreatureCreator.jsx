@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { MOVES } from '../data/moves.js'
-import { TYPE_COLORS, TYPES } from '../data/types.js'
+import { TYPE_COLORS } from '../data/types.js'
+import { getBankSprites } from '../data/creatureAssets.js'
 
 const STAT_BUDGET = 310
 const STAT_MIN = 20
@@ -15,11 +16,10 @@ const ARCHETYPE_GUIDES = {
   glass_cannon: { hp: 40, atk: 65, def: 32, spd: 68, spc: 85 },
   bruiser: { hp: 78, atk: 78, def: 58, spd: 32, spc: 55 },
 }
-const SHAPES = ['wolf', 'tortoise', 'hawk', 'dolphin', 'crab', 'bull', 'ferret', 'boulder', 'fox', 'viper', 'sprite', 'frog', 'owl', 'blob', 'bear', 'serpent', 'moth', 'mole', 'armadillo', 'golem', 'ram', 'rhino', 'beast', 'jaw', 'titan', 'vine']
-
 export default function CreatureCreator({ existingCreature, allTypes, customTypes, onSave, onCancel }) {
+  const bankSprites = useMemo(() => getBankSprites(), [])
   const defaults = existingCreature || {
-    name: '', type: 'fire', archetype: 'speedster', desc: '', shape: 'wolf',
+    name: '', type: 'fire', archetype: 'speedster', desc: '', shape: 'wolf', spriteId: '',
     baseStats: { hp: 62, atk: 62, def: 62, spd: 62, spc: 62 },
     movePool: [],
   }
@@ -28,7 +28,7 @@ export default function CreatureCreator({ existingCreature, allTypes, customType
   const [type, setType] = useState(defaults.type)
   const [archetype, setArchetype] = useState(defaults.archetype)
   const [desc, setDesc] = useState(defaults.desc)
-  const [shape, setShape] = useState(defaults.shape)
+  const [spriteId, setSpriteId] = useState(defaults.spriteId || '')
   const [stats, setStats] = useState({ ...defaults.baseStats })
   const [selectedMoves, setSelectedMoves] = useState(defaults.movePool || [])
 
@@ -60,13 +60,13 @@ export default function CreatureCreator({ existingCreature, allTypes, customType
     })
   }
 
-  const isValid = name.trim().length >= 2 && name.length <= 12 && selectedMoves.length === 8 && Math.abs(remaining) <= 5
+  const isValid = name.trim().length >= 2 && name.length <= 12 && selectedMoves.length === 8 && Math.abs(remaining) <= 5 && !!spriteId
 
   const handleSave = () => {
     if (!isValid) return
     const id = existingCreature?.id || 'custom_' + name.trim().toLowerCase().replace(/\s+/g, '_') + '_' + Date.now()
     onSave({
-      id, name: name.trim(), type, archetype, desc: desc.trim(), shape,
+      id, name: name.trim(), type, archetype, desc: desc.trim(), shape: defaults.shape || 'wolf', spriteId,
       baseStats: { ...stats }, movePool: [...selectedMoves], isCustom: true,
     })
   }
@@ -97,15 +97,17 @@ export default function CreatureCreator({ existingCreature, allTypes, customType
         </div>
       </div>
 
-      {/* Type, Archetype, Shape */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Type and archetype */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="font-ui text-xs text-slate-500 uppercase font-bold tracking-wider">Type</label>
           <select value={type} onChange={e => setType(e.target.value)}
             className="w-full mt-1 px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-100 font-ui focus:border-amber-500 focus:outline-none cursor-pointer">
-            {allTypes.filter(t => t !== 'normal').map(t => (
-              <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-            ))}
+            {allTypes.filter(t => t !== 'normal').map(t => {
+              const customName = customTypes?.find(ct => ct.id === t)?.name
+              const label = customName || (t.charAt(0).toUpperCase() + t.slice(1))
+              return <option key={t} value={t}>{label}</option>
+            })}
           </select>
         </div>
         <div>
@@ -115,12 +117,28 @@ export default function CreatureCreator({ existingCreature, allTypes, customType
             {ARCHETYPES.map(a => <option key={a} value={a}>{ARCHETYPE_LABELS[a]}</option>)}
           </select>
         </div>
-        <div>
-          <label className="font-ui text-xs text-slate-500 uppercase font-bold tracking-wider">Shape</label>
-          <select value={shape} onChange={e => setShape(e.target.value)}
-            className="w-full mt-1 px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-100 font-ui focus:border-amber-500 focus:outline-none cursor-pointer">
-            {SHAPES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-          </select>
+      </div>
+
+      {/* Art bank */}
+      <div className="rounded-xl border border-slate-700 p-4 bg-slate-900/50">
+        <h4 className="font-ui text-sm font-bold text-slate-300 uppercase tracking-wider mb-1">Look</h4>
+        <p className="font-ui text-sm text-slate-500 mb-3">Pick a picture from the art bank. This is what shows up in battle.</p>
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
+          {bankSprites.map(sprite => {
+            const selected = spriteId === sprite.id
+            return (
+              <button
+                key={sprite.id}
+                type="button"
+                onClick={() => setSpriteId(sprite.id)}
+                aria-label={sprite.name}
+                className={`rounded-xl border-2 p-1 flex flex-col items-center cursor-pointer bg-slate-800 ${selected ? 'border-amber-400' : 'border-slate-700'}`}
+              >
+                <img src={sprite.idle} alt="" className="w-14 h-14 object-contain" />
+                <span className="font-ui text-[11px] text-slate-300 truncate w-full text-center">{sprite.name}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -184,7 +202,7 @@ export default function CreatureCreator({ existingCreature, allTypes, customType
         )}
 
         {/* Available moves grid */}
-        <div className="max-h-48 overflow-y-auto space-y-1">
+        <div className="max-h-[50vh] overflow-y-auto space-y-1">
           {allMoves.map(move => {
             const isSelected = selectedMoves.includes(move.id)
             const mc = getTypeColors(move.type)
@@ -229,6 +247,7 @@ export default function CreatureCreator({ existingCreature, allTypes, customType
           {name.trim().length < 2 ? 'Name must be at least 2 characters. ' : ''}
           {selectedMoves.length !== 8 ? `Select exactly 8 moves (have ${selectedMoves.length}). ` : ''}
           {Math.abs(remaining) > 5 ? `Stats must be within 5 of budget (${remaining > 0 ? remaining + ' remaining' : Math.abs(remaining) + ' over'}). ` : ''}
+          {!spriteId ? 'Pick a look from the art bank. ' : ''}
         </p>
       )}
     </div>

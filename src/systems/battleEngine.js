@@ -94,7 +94,7 @@ function applyStatusEffect(move, user, target, userLabel) {
 /**
  * Execute one side's attack action. Returns events.
  */
-function executeAttack(attacker, move, defender, attackerLabel) {
+function executeAttack(attacker, move, defender, attackerLabel, typeChart) {
   const events = []
   const defenderLabel = attackerLabel === 'player' ? 'ai' : 'player'
 
@@ -111,12 +111,12 @@ function executeAttack(attacker, move, defender, attackerLabel) {
   }
 
   // Damage moves
-  const result = calculateDamage(attacker, move, defender)
+  const result = calculateDamage(attacker, move, defender, Math.random, typeChart)
 
   if (result.missed) {
     events.push({
       type: 'miss',
-      data: { creature: attackerLabel, name: attacker.name, move: move.name },
+      data: { creature: attackerLabel, name: attacker.name, move: move.name, dodged: !!result.dodged },
     })
     return events
   }
@@ -176,9 +176,10 @@ function executeAttack(attacker, move, defender, attackerLabel) {
  * @param {object[]} aiTeam — AI's team of battle creatures
  * @param {number} aiActiveIdx — index of AI's active creature
  * @param {object|string} aiConfig — AI config object { optimalChance, switchBehavior } or legacy difficulty string
+ * @param {object} [typeChart] — effectiveness chart, including Forge custom types
  * @returns {{ events: object[], playerActiveIdx: number, aiActiveIdx: number, battleOver: boolean, winner: string|null }}
  */
-export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, aiActiveIdx, aiConfig, cooldowns) {
+export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, aiActiveIdx, aiConfig, cooldowns, typeChart) {
   const events = []
   let newPlayerIdx = playerActiveIdx
   let newAiIdx = aiActiveIdx
@@ -189,10 +190,10 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
   const aiCreature = aiTeam[aiActiveIdx]
 
   // --- Determine AI action (respects cooldown) ---
-  const switchIdx = aiCooldown > 0 ? null : aiShouldSwitch(aiTeam, aiActiveIdx, playerCreature, aiConfig)
+  const switchIdx = aiCooldown > 0 ? null : aiShouldSwitch(aiTeam, aiActiveIdx, playerCreature, aiConfig, typeChart)
   const aiAction = switchIdx !== null
     ? { type: 'switch', targetIndex: switchIdx }
-    : { type: 'attack', moveId: aiPickMove(aiCreature, playerCreature, aiConfig)?.id }
+    : { type: 'attack', moveId: aiPickMove(aiCreature, playerCreature, aiConfig, typeChart)?.id }
 
   // --- Handle switches (happen before attacks) ---
 
@@ -252,32 +253,32 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
 
     if (first === 'player') {
       // Player attacks first
-      events.push(...executeAttack(currentPlayer, playerMove, currentAi, 'player'))
+      events.push(...executeAttack(currentPlayer, playerMove, currentAi, 'player', typeChart))
 
       // AI attacks if not fainted
       if (!currentAi.fainted) {
-        events.push(...executeAttack(currentAi, aiMove, currentPlayer, 'ai'))
+        events.push(...executeAttack(currentAi, aiMove, currentPlayer, 'ai', typeChart))
       }
     } else {
       // AI attacks first
-      events.push(...executeAttack(currentAi, aiMove, currentPlayer, 'ai'))
+      events.push(...executeAttack(currentAi, aiMove, currentPlayer, 'ai', typeChart))
 
       // Player attacks if not fainted
       if (!currentPlayer.fainted) {
-        events.push(...executeAttack(currentPlayer, playerMove, currentAi, 'player'))
+        events.push(...executeAttack(currentPlayer, playerMove, currentAi, 'player', typeChart))
       }
     }
   } else if (playerAttacking && !aiAttacking) {
     // Only player attacks (AI switched — player gets free attack)
     const playerMove = MOVES[playerAction.moveId]
     if (playerMove) {
-      events.push(...executeAttack(currentPlayer, playerMove, currentAi, 'player'))
+      events.push(...executeAttack(currentPlayer, playerMove, currentAi, 'player', typeChart))
     }
   } else if (!playerAttacking && aiAttacking) {
     // Only AI attacks (player switched — AI gets free attack)
     const aiMove = MOVES[aiAction.moveId]
     if (aiMove) {
-      events.push(...executeAttack(currentAi, aiMove, currentPlayer, 'ai'))
+      events.push(...executeAttack(currentAi, aiMove, currentPlayer, 'ai', typeChart))
     }
   }
   // Both switched — no attacks, just the switch events above

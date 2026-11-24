@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { importSave } from '../utils/saveManager.js'
 import { TYPE_COLORS } from '../data/types.js'
 import CreatureSprite from './CreatureSprite.jsx'
+import ConfirmDialog from './ConfirmDialog.jsx'
 
 const FLOATING_TYPES = ['fire', 'water', 'grass', 'electric', 'rock', 'ground', 'poison']
 // One representative creature per type for the title strip
@@ -10,10 +11,16 @@ const TITLE_CREATURES = {
   rock: 'bouldar', ground: 'dustail', poison: 'venomaw',
 }
 
-export default function TitleScreen({ hasSave, forgeUnlocked, onNewGame, onContinue, onImport, onForge }) {
+export default function TitleScreen({ hasSave, forgeUnlocked, profileName, profileColor, onNewGame, onContinue, onImport, onForge, onSwitchPlayer }) {
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState(null)
+  const [confirmNew, setConfirmNew] = useState(false)
   const fileRef = useRef(null)
+
+  const askNewGame = () => {
+    if (hasSave) setConfirmNew(true)
+    else onNewGame()
+  }
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0]
@@ -56,23 +63,28 @@ export default function TitleScreen({ hasSave, forgeUnlocked, onNewGame, onConti
 
       {/* Title */}
       <div className="relative z-10 text-center slide-up">
-        <h1 className="font-game text-6xl md:text-8xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-500 leading-tight">
+        <h1 className="font-game text-4xl sm:text-6xl md:text-8xl font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-500 leading-tight">
           BATTLE
         </h1>
-        <h1 className="font-game text-6xl md:text-8xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-amber-300 via-orange-400 to-red-500 leading-tight -mt-2">
+        <h1 className="font-game text-4xl sm:text-6xl md:text-8xl font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-b from-amber-300 via-orange-400 to-red-500 leading-tight -mt-1">
           ARENA
         </h1>
-        <p className="font-ui text-lg md:text-xl text-slate-400 tracking-[0.3em] uppercase mt-4">
+        <p className="font-ui text-base sm:text-lg md:text-xl text-slate-400 tracking-[0.2em] sm:tracking-[0.3em] uppercase mt-3">
           Creature Battle Simulator
         </p>
+        {profileName && (
+          <p className="font-ui text-base text-slate-300 mt-3">
+            Playing as <span className="font-bold" style={{ color: profileColor || '#f6ad55' }}>{profileName}</span>
+          </p>
+        )}
       </div>
 
       {/* Creature sprite strip */}
-      <div className="relative z-10 flex gap-3 mt-10 slide-up" style={{ animationDelay: '0.15s' }}>
+      <div className="relative z-10 flex flex-wrap justify-center gap-2 sm:gap-3 mt-6 sm:mt-10 slide-up max-w-xl" style={{ animationDelay: '0.15s' }}>
         {FLOATING_TYPES.map((type) => (
           <div
             key={type}
-            className="w-14 h-14 md:w-20 md:h-20 rounded-lg border-2 flex items-center justify-center overflow-hidden"
+            className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-lg border-2 flex items-center justify-center overflow-hidden"
             style={{
               borderColor: TYPE_COLORS[type].accent,
               background: TYPE_COLORS[type].dark + '30',
@@ -83,14 +95,14 @@ export default function TitleScreen({ hasSave, forgeUnlocked, onNewGame, onConti
               creatureId={TITLE_CREATURES[type]}
               creatureType={type}
               creatureName={TITLE_CREATURES[type]}
-              size={64}
+              size={56}
             />
           </div>
         ))}
       </div>
 
       {/* Menu buttons */}
-      <div className="relative z-10 flex flex-col gap-3 mt-12 w-full max-w-xs slide-up" style={{ animationDelay: '0.3s' }}>
+      <div className="relative z-10 flex flex-col gap-3 mt-8 sm:mt-12 w-full max-w-xs slide-up" style={{ animationDelay: '0.3s' }}>
         {hasSave && (
           <button
             onClick={onContinue}
@@ -105,7 +117,7 @@ export default function TitleScreen({ hasSave, forgeUnlocked, onNewGame, onConti
         )}
 
         <button
-          onClick={onNewGame}
+          onClick={askNewGame}
           className="w-full py-4 px-6 rounded-xl font-ui font-bold text-xl uppercase tracking-wider
             bg-gradient-to-r from-slate-700 to-slate-600 hover:from-slate-600 hover:to-slate-500
             border border-slate-500/30 hover:border-slate-400/60
@@ -139,6 +151,17 @@ export default function TitleScreen({ hasSave, forgeUnlocked, onNewGame, onConti
           <p className="text-red-400 text-sm text-center font-ui mt-1">{importError}</p>
         )}
 
+        {onSwitchPlayer && (
+          <button
+            onClick={onSwitchPlayer}
+            className="w-full py-3 px-6 rounded-xl font-ui font-semibold text-base uppercase tracking-wider
+              bg-slate-800/60 hover:bg-slate-700/80 active:bg-slate-700
+              border border-slate-600/30 text-slate-300 transition-all cursor-pointer"
+          >
+            Switch Player
+          </button>
+        )}
+
         {forgeUnlocked && (
           <button
             onClick={onForge}
@@ -155,9 +178,23 @@ export default function TitleScreen({ hasSave, forgeUnlocked, onNewGame, onConti
       </div>
 
       {/* Footer */}
-      <p className="relative z-10 text-slate-600 text-sm font-ui mt-auto pb-6 pt-12">
-        v1.0 — A creature battle game
+      <p className="relative z-10 text-slate-600 text-sm font-ui mt-auto pb-6 pt-8">
+        v1.1 — A creature battle game
       </p>
+
+      {confirmNew && (
+        <ConfirmDialog
+          title="Start a new game?"
+          message={profileName
+            ? `This erases ${profileName}'s creatures, badges, and wins on this device. The other players' saves stay safe.`
+            : 'This erases the creatures, badges, and wins in this save. The other players stay safe.'}
+          confirmLabel="Start over"
+          cancelLabel="Keep my save"
+          danger
+          onConfirm={() => { setConfirmNew(false); onNewGame() }}
+          onCancel={() => setConfirmNew(false)}
+        />
+      )}
     </div>
   )
 }

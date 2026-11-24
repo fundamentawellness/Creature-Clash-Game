@@ -1,7 +1,6 @@
 import Phaser from 'phaser'
 import { TYPE_COLORS } from '../../data/types.js'
-import { MOVES } from '../../data/moves.js'
-import { CREATURE_SPRITES } from '../../data/creatureAssets.js'
+import { CREATURE_SPRITES, resolveSpriteId } from '../../data/creatureAssets.js'
 
 // Layout constants
 const W = 800
@@ -48,6 +47,11 @@ export class BattleScene extends Phaser.Scene {
     this.difficulty = data.difficulty || 'easy'
     this.onPlayerAction = data.onPlayerAction || (() => {})
     this.onBattleEnd = data.onBattleEnd || (() => {})
+    this.onControlsChange = data.onControlsChange || (() => {})
+    this.onLogChange = data.onLogChange || (() => {})
+    this.typeColors = data.typeColors || null
+    this.typeNames = data.typeNames || null
+    this._forceSwitchDone = null
     this.playerActiveIdx = 0
     this.aiActiveIdx = 0
     this.isAnimating = false
@@ -57,18 +61,55 @@ export class BattleScene extends Phaser.Scene {
   }
 
   preload() {
-    // Load sprites for all creatures in both teams
+    // Load sprites for all creatures in both teams.
+    // Custom creatures use their art-bank spriteId when they have one.
     const allCreatures = [...this.playerTeam, ...this.aiTeam]
+    const seen = new Set()
     for (const creature of allCreatures) {
       if (!creature) continue
-      const sprites = CREATURE_SPRITES[creature.id]
-      if (sprites?.idle) {
-        this.load.image(`${creature.id}-idle`, sprites.idle)
-      }
-      if (sprites?.attack) {
-        this.load.image(`${creature.id}-attack`, sprites.attack)
-      }
+      const id = resolveSpriteId(creature)
+      if (!id || seen.has(id)) continue
+      seen.add(id)
+      const sprites = CREATURE_SPRITES[id]
+      if (sprites?.idle) this.load.image(`${id}-idle`, sprites.idle)
+      if (sprites?.attack) this.load.image(`${id}-attack`, sprites.attack)
     }
+  }
+
+  typeColor(type) {
+    return this.typeColors?.[type] || TYPE_COLORS[type] || {
+      accent: '#718096', light: '#a0aec0', dark: '#4a5568', bg: '#5a6072', glow: '#cbd5e0',
+    }
+  }
+
+  typeLabel(type) {
+    const name = this.typeNames?.[type] || type || ''
+    return String(name).toUpperCase()
+  }
+
+  emitControls(mode) {
+    this.controlMode = mode
+    const creature = this.getPlayerCreature()
+    const cooldown = this.playerSwitchCooldown || 0
+    const canSwitch = cooldown <= 0 && this.playerTeam.some((c, i) => i !== this.playerActiveIdx && !c.fainted)
+    this.onControlsChange({
+      mode,
+      moves: creature?.currentMoves ? [...creature.currentMoves] : [],
+      activeIndex: this.playerActiveIdx,
+      activeType: creature?.type || null,
+      cooldown,
+      canSwitch,
+      team: (this.playerTeam || []).map((c, index) => ({
+        index,
+        id: c.id,
+        spriteId: c.spriteId || null,
+        name: c.name,
+        type: c.type,
+        fainted: !!c.fainted,
+        currentHp: c.currentHp,
+        maxHp: c.currentStats?.hp || 1,
+      })),
+    })
   }
 
   create() {
@@ -103,6 +144,11 @@ export class BattleScene extends Phaser.Scene {
     this._delayTimer = setTimeout(() => {
       if (!this.battleOver) this.showMoveButtons()
     }, 800)
+
+    this.events.once('shutdown', () => {
+      if (this._delayTimer) clearTimeout(this._delayTimer)
+      this.emitControls(null)
+    })
   }
 
   drawBackground() {
@@ -139,7 +185,7 @@ export class BattleScene extends Phaser.Scene {
   drawFallbackCreature(x, y, size, creature) {
     // Colored circle with first letter — for custom creatures without art
     console.warn(`Missing sprite for ${creature.id}, using fallback`)
-    const colors = TYPE_COLORS[creature.type] || { accent: '#718096', dark: '#4a5568' }
+    const colors = this.typeColor(creature.type)
     const gfx = this.add.graphics()
     gfx.fillStyle(hexToNum(colors.dark), 1)
     gfx.fillCircle(0, 0, size * 0.35)
@@ -169,11 +215,12 @@ export class BattleScene extends Phaser.Scene {
     const creature = this.getPlayerCreature()
     if (!creature || creature.fainted) return
 
-    const hasSprite = this.textures.exists(`${creature.id}-idle`)
-    const colors = TYPE_COLORS[creature.type] || { accent: '#718096' }
+    const idleKey = `${resolveSpriteId(creature)}-idle`
+    const hasSprite = this.textures.exists(idleKey)
+    const colors = this.typeColor(creature.type)
 
     if (hasSprite) {
-      this.playerSprite = this.add.image(PLAYER_X, PLAYER_Y, `${creature.id}-idle`)
+      this.playerSprite = this.add.image(PLAYER_X, PLAYER_Y, idleKey)
       this.playerSprite.setDisplaySize(PLAYER_SPRITE_SIZE, PLAYER_SPRITE_SIZE)
       this.playerSprite.setOrigin(0.5, 0.7) // anchor lower so shadow sits right
     } else {
@@ -196,11 +243,12 @@ export class BattleScene extends Phaser.Scene {
     const creature = this.getAiCreature()
     if (!creature || creature.fainted) return
 
-    const hasSprite = this.textures.exists(`${creature.id}-idle`)
-    const colors = TYPE_COLORS[creature.type] || { accent: '#718096' }
+    const idleKey = `${resolveSpriteId(creature)}-idle`
+    const hasSprite = this.textures.exists(idleKey)
+    const colors = this.typeColor(creature.type)
 
     if (hasSprite) {
-      this.enemySprite = this.add.image(ENEMY_X, ENEMY_Y, `${creature.id}-idle`)
+      this.enemySprite = this.add.image(ENEMY_X, ENEMY_Y, idleKey)
       this.enemySprite.setDisplaySize(ENEMY_SPRITE_SIZE, ENEMY_SPRITE_SIZE)
       this.enemySprite.setOrigin(0.5, 0.7)
       this.enemySprite.setFlipX(true) // Enemy faces left
@@ -268,16 +316,16 @@ export class BattleScene extends Phaser.Scene {
     if (player) {
       this.playerNameText.setText(player.name)
       this.playerLevelText.setText(`Lv${player.level}`)
-      this.playerTypeBadge.setText(player.type.toUpperCase())
-      this.playerTypeBadge.setColor(TYPE_COLORS[player.type]?.light || '#94a3b8')
+      this.playerTypeBadge.setText(this.typeLabel(player.type))
+      this.playerTypeBadge.setColor(this.typeColor(player.type).light || '#94a3b8')
       this.updateHpBar('player', player)
     }
 
     if (enemy) {
       this.enemyNameText.setText(enemy.name)
       this.enemyLevelText.setText(`Lv${enemy.level}`)
-      this.enemyTypeBadge.setText(enemy.type.toUpperCase())
-      this.enemyTypeBadge.setColor(TYPE_COLORS[enemy.type]?.light || '#94a3b8')
+      this.enemyTypeBadge.setText(this.typeLabel(enemy.type))
+      this.enemyTypeBadge.setColor(this.typeColor(enemy.type).light || '#94a3b8')
       this.updateHpBar('ai', enemy)
     }
   }
@@ -327,356 +375,97 @@ export class BattleScene extends Phaser.Scene {
     this.logLines.push(text)
     if (this.logLines.length > 3) this.logLines.shift()
     if (this.logText) this.logText.setText(this.logLines.join('\n'))
+    if (this.onLogChange) this.onLogChange([...this.logLines])
   }
 
   // ===================== MOVE BUTTONS =====================
+  // Buttons live in the React layout so they stay big on a phone.
+  // This scene only tells React when the player may tap.
 
   createMoveButtons() {
-    this.moveButtonContainer = this.add.container(0, 0)
-    this.moveButtonContainer.setVisible(false)
-    this.switchButton = null
+    this.moveButtonContainer = null
   }
 
   showMoveButtons() {
     if (this.battleOver || this.isAnimating) return
-
-    // Clean up any lingering panels
-    if (this._forceSwitchPanel) {
-      this._forceSwitchPanel.destroy(true)
-      this._forceSwitchPanel = null
-    }
-
-    this.moveButtonContainer.removeAll(true)
-
     const creature = this.getPlayerCreature()
-    if (!creature || creature.fainted) return
-
-    const moves = creature.currentMoves.map(id => MOVES[id]).filter(Boolean)
-
-    // 2x2 grid layout for moves + full-width switch button below
-    const cols = 2
-    const rows = Math.ceil(moves.length / cols)
-    const btnW = 185
-    const btnH = 42
-    const gapX = 6
-    const gapY = 4
-    const gridW = cols * btnW + (cols - 1) * gapX
-    const gridH = rows * btnH + (rows - 1) * gapY
-    const startX = Math.max(10, PLAYER_X - gridW / 2)
-    const switchH = 28
-    const switchGap = 4
-    const totalPanelH = gridH + switchGap + switchH
-    const panelY = H - totalPanelH - 12
-    const btnY = panelY
-
-    // Background panel
-    const panelBg = this.add.graphics()
-    panelBg.fillStyle(0x0f172a, 0.95)
-    panelBg.fillRoundedRect(startX - 10, panelY - 6, gridW + 20, totalPanelH + 12, 8)
-    panelBg.lineStyle(1, 0x334155, 0.6)
-    panelBg.strokeRoundedRect(startX - 10, panelY - 6, gridW + 20, totalPanelH + 12, 8)
-    this.moveButtonContainer.add(panelBg)
-
-    moves.forEach((move, i) => {
-      const col = i % cols
-      const row = Math.floor(i / cols)
-      const x = startX + col * (btnW + gapX)
-      const y = btnY + row * (btnH + gapY)
-      const colors = TYPE_COLORS[move.type]
-      const bgColor = hexToNum(colors?.dark || '#334155')
-      const borderColor = hexToNum(colors?.accent || '#94a3b8')
-
-      const btn = this.add.graphics()
-      btn.fillStyle(bgColor, 0.9)
-      btn.fillRoundedRect(x, y, btnW, btnH, 5)
-      btn.lineStyle(1.5, borderColor, 0.7)
-      btn.strokeRoundedRect(x, y, btnW, btnH, 5)
-
-      const nameText = this.add.text(x + 8, y + 3, move.name, {
-        fontSize: '12px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: colors?.light || '#e2e8f0',
-      })
-
-      let detailStr = move.category === 'status' ? 'STATUS' : `PWR ${move.power}  ACC ${move.accuracy}%`
-      const catStr = move.category.charAt(0).toUpperCase() + move.category.slice(1, 4)
-      const detailText = this.add.text(x + 8, y + 20, `${detailStr}  ${catStr}`, {
-        fontSize: '9px', fontFamily: 'Rajdhani', color: '#94a3b8',
-      })
-
-      if (move.type === creature.type) {
-        const stabText = this.add.text(x + btnW - 35, y + 4, 'STAB', {
-          fontSize: '8px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: '#fbbf24',
-        })
-        this.moveButtonContainer.add(stabText)
-      }
-
-      const hitZone = this.add.zone(x + btnW / 2, y + btnH / 2, btnW, btnH).setInteractive({ useHandCursor: true })
-      hitZone.on('pointerover', () => {
-        btn.clear()
-        btn.fillStyle(bgColor, 1)
-        btn.fillRoundedRect(x, y, btnW, btnH, 5)
-        btn.lineStyle(2, borderColor, 1)
-        btn.strokeRoundedRect(x, y, btnW, btnH, 5)
-      })
-      hitZone.on('pointerout', () => {
-        btn.clear()
-        btn.fillStyle(bgColor, 0.9)
-        btn.fillRoundedRect(x, y, btnW, btnH, 5)
-        btn.lineStyle(1.5, borderColor, 0.7)
-        btn.strokeRoundedRect(x, y, btnW, btnH, 5)
-      })
-      hitZone.on('pointerdown', () => {
-        if (!this.awaitingInput) return
-        this.hideMoveButtons()
-        this.onPlayerAction({ type: 'attack', moveId: move.id })
-      })
-
-      this.moveButtonContainer.add([btn, nameText, detailText, hitZone])
-    })
-
-    // Switch button — full width below move grid
-    const hasSwitch = this.playerTeam.some((c, i) => i !== this.playerActiveIdx && !c.fainted)
-    if (hasSwitch) {
-      const switchY = btnY + gridH + switchGap
-      const cooldown = this.playerSwitchCooldown || 0
-      const canSwitch = cooldown <= 0
-
-      const switchBg = this.add.graphics()
-      if (canSwitch) {
-        switchBg.fillStyle(0x1e293b, 0.9)
-        switchBg.fillRoundedRect(startX, switchY, gridW, switchH, 4)
-        switchBg.lineStyle(1, 0x475569, 0.6)
-        switchBg.strokeRoundedRect(startX, switchY, gridW, switchH, 4)
-      } else {
-        switchBg.fillStyle(0x111827, 0.7)
-        switchBg.fillRoundedRect(startX, switchY, gridW, switchH, 4)
-        switchBg.lineStyle(1, 0x1e293b, 0.4)
-        switchBg.strokeRoundedRect(startX, switchY, gridW, switchH, 4)
-      }
-
-      const labelStr = canSwitch
-        ? '\u21C4  SWITCH CREATURE'
-        : `\uD83D\uDD12  SWITCH (${cooldown} turn${cooldown > 1 ? 's' : ''})`
-      const switchText = this.add.text(W / 2, switchY + switchH / 2, labelStr, {
-        fontSize: '11px', fontFamily: 'Rajdhani', fontStyle: 'bold',
-        color: canSwitch ? '#94a3b8' : '#475569',
-      }).setOrigin(0.5)
-
-      if (canSwitch) {
-        const switchZone = this.add.zone(W / 2, switchY + switchH / 2, gridW, switchH).setInteractive({ useHandCursor: true })
-        switchZone.on('pointerover', () => {
-          switchBg.clear()
-          switchBg.fillStyle(0x334155, 1)
-          switchBg.fillRoundedRect(startX, switchY, gridW, switchH, 4)
-          switchBg.lineStyle(1, 0x64748b, 0.8)
-          switchBg.strokeRoundedRect(startX, switchY, gridW, switchH, 4)
-        })
-        switchZone.on('pointerout', () => {
-          switchBg.clear()
-          switchBg.fillStyle(0x1e293b, 0.9)
-          switchBg.fillRoundedRect(startX, switchY, gridW, switchH, 4)
-          switchBg.lineStyle(1, 0x475569, 0.6)
-          switchBg.strokeRoundedRect(startX, switchY, gridW, switchH, 4)
-        })
-        switchZone.on('pointerdown', () => {
-          if (!this.awaitingInput) return
-          this.showSwitchPanel()
-        })
-        this.moveButtonContainer.add(switchZone)
-      }
-
-      this.moveButtonContainer.add([switchBg, switchText])
+    if (!creature || creature.fainted) {
+      this.awaitingInput = false
+      this.emitControls(null)
+      return
     }
-
-    this.moveButtonContainer.setVisible(true)
     this.awaitingInput = true
-    this.logBg.setVisible(false)
-    this.logText.setVisible(false)
+    this.emitControls('move')
   }
 
   hideMoveButtons() {
-    this.moveButtonContainer.setVisible(false)
     this.awaitingInput = false
-    this.logBg.setVisible(true)
-    this.logText.setVisible(true)
+    this.emitControls(null)
   }
 
   showSwitchPanel() {
-    this.hideMoveButtons()
-
-    const panel = this.add.container(0, 0)
-    const panelBg = this.add.graphics()
-    panelBg.fillStyle(0x0f172a, 0.95)
-    panelBg.fillRoundedRect(W / 2 - 200, H / 2 - 80, 400, 160, 10)
-    panelBg.lineStyle(1, 0x334155, 0.8)
-    panelBg.strokeRoundedRect(W / 2 - 200, H / 2 - 80, 400, 160, 10)
-    panel.add(panelBg)
-
-    const title = this.add.text(W / 2, H / 2 - 65, 'SWITCH CREATURE', {
-      fontSize: '14px', fontFamily: 'Orbitron', fontStyle: 'bold', color: '#e2e8f0', align: 'center',
-    }).setOrigin(0.5)
-    panel.add(title)
-
-    let col = 0
-    this.playerTeam.forEach((creature, idx) => {
-      if (idx === this.playerActiveIdx || creature.fainted) return
-
-      const x = W / 2 - 160 + col * 170
-      const y = H / 2 - 30
-      const colors = TYPE_COLORS[creature.type]
-
-      const cardBg = this.add.graphics()
-      cardBg.fillStyle(hexToNum(colors?.dark || '#334155'), 0.7)
-      cardBg.fillRoundedRect(x, y, 150, 80, 6)
-      cardBg.lineStyle(1, hexToNum(colors?.accent || '#94a3b8'), 0.6)
-      cardBg.strokeRoundedRect(x, y, 150, 80, 6)
-
-      // Mini sprite in card
-      const hasMiniSprite = this.textures.exists(`${creature.id}-idle`)
-      if (hasMiniSprite) {
-        const mini = this.add.image(x + 125, y + 40, `${creature.id}-idle`)
-        mini.setDisplaySize(40, 40)
-        panel.add(mini)
-      }
-
-      const nameT = this.add.text(x + 10, y + 8, creature.name, {
-        fontSize: '14px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: colors?.light || '#e2e8f0',
-      })
-      const hpPct = creature.currentHp / creature.currentStats.hp
-      const hpT = this.add.text(x + 10, y + 28, `HP: ${creature.currentHp}/${creature.currentStats.hp}`, {
-        fontSize: '11px', fontFamily: 'Rajdhani', color: '#94a3b8',
-      })
-      const typeT = this.add.text(x + 10, y + 46, creature.type.toUpperCase(), {
-        fontSize: '10px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: colors?.accent || '#94a3b8',
-      })
-
-      const zone = this.add.zone(x + 75, y + 40, 150, 80).setInteractive({ useHandCursor: true })
-      zone.on('pointerdown', () => {
-        panel.destroy(true)
-        this.onPlayerAction({ type: 'switch', targetIndex: idx })
-      })
-
-      panel.add([cardBg, nameT, hpT, typeT, zone])
-      col++
-    })
-
-    // Cancel button
-    const cancelT = this.add.text(W / 2, H / 2 + 60, 'CANCEL', {
-      fontSize: '12px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: '#64748b',
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
-    cancelT.on('pointerdown', () => {
-      panel.destroy(true)
-      this.showMoveButtons()
-    })
-    panel.add(cancelT)
+    if (!this.awaitingInput || this.battleOver) return
+    this.emitControls('switch')
   }
 
-  // ===================== FORCE SWITCH (after faint) =====================
+  cancelSwitch() {
+    this.showMoveButtons()
+  }
 
   showForceSwitchPanel(onSwitchComplete) {
-    // Clean up any existing panel first
-    if (this._forceSwitchPanel) {
-      this._forceSwitchPanel.destroy(true)
-      this._forceSwitchPanel = null
-    }
-
-    // Check if any alive creatures remain — if not, this is a defeat
     const alive = this.playerTeam.filter(c => !c.fainted)
     if (alive.length === 0) {
-      // No creatures left — defeat handled by battleOver in processTurnResult
+      if (onSwitchComplete) onSwitchComplete()
+      return
+    }
+    this._forceSwitchDone = onSwitchComplete
+    this.awaitingInput = true
+    this.emitControls('force')
+  }
+
+  confirmForceSwitch(index) {
+    if (this.controlMode !== 'force') return
+    const onSwitchComplete = this._forceSwitchDone
+    this._forceSwitchDone = null
+    this.awaitingInput = false
+    this.emitControls(null)
+
+    const creature = this.playerTeam[index]
+    if (!creature || creature.fainted) {
       if (onSwitchComplete) onSwitchComplete()
       return
     }
 
-    const panel = this.add.container(0, 0)
-    this._forceSwitchPanel = panel
-    const panelBg = this.add.graphics()
-    panelBg.fillStyle(0x0f172a, 0.95)
-    panelBg.fillRoundedRect(W / 2 - 200, H / 2 - 80, 400, 160, 10)
-    panelBg.lineStyle(1, 0xf56565, 0.5)
-    panelBg.strokeRoundedRect(W / 2 - 200, H / 2 - 80, 400, 160, 10)
-    panel.add(panelBg)
+    this.playerActiveIdx = index
+    if (this._onForceSwitch) this._onForceSwitch(index)
+    this.drawPlayerCreature()
+    this.updateInfoPanels()
+    this.addLogLine(`Go, ${this.getPlayerCreature().name}!`)
 
-    const title = this.add.text(W / 2, H / 2 - 65, 'CHOOSE NEXT CREATURE', {
-      fontSize: '14px', fontFamily: 'Orbitron', fontStyle: 'bold', color: '#fc8181', align: 'center',
-    }).setOrigin(0.5)
-    panel.add(title)
-
-    let col = 0
-    this.playerTeam.forEach((creature, idx) => {
-      if (creature.fainted) return
-
-      const x = W / 2 - 160 + col * 170
-      const y = H / 2 - 30
-      const colors = TYPE_COLORS[creature.type]
-
-      const cardBg = this.add.graphics()
-      cardBg.fillStyle(hexToNum(colors?.dark || '#334155'), 0.7)
-      cardBg.fillRoundedRect(x, y, 150, 80, 6)
-      cardBg.lineStyle(1, hexToNum(colors?.accent || '#94a3b8'), 0.6)
-      cardBg.strokeRoundedRect(x, y, 150, 80, 6)
-
-      // Mini sprite
-      if (this.textures.exists(`${creature.id}-idle`)) {
-        const mini = this.add.image(x + 125, y + 40, `${creature.id}-idle`)
-        mini.setDisplaySize(40, 40)
-        panel.add(mini)
+    const finish = () => {
+      if (onSwitchComplete) onSwitchComplete()
+      else {
+        this.isAnimating = false
+        if (!this.battleOver) this.showMoveButtons()
       }
+    }
 
-      const nameT = this.add.text(x + 10, y + 8, creature.name, {
-        fontSize: '14px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: colors?.light || '#e2e8f0',
+    const newSprite = this.playerSprite
+    if (newSprite) {
+      const fsx = newSprite.scaleX
+      const fsy = newSprite.scaleY
+      newSprite.setAlpha(0)
+      newSprite.scaleX = fsx * 0.5
+      newSprite.scaleY = fsy * 0.5
+      this.tweens.add({
+        targets: newSprite,
+        alpha: 1, scaleX: fsx, scaleY: fsy,
+        duration: 400, ease: 'Back.easeOut',
+        onComplete: finish,
       })
-      const hpT = this.add.text(x + 10, y + 28, `HP: ${creature.currentHp}/${creature.currentStats.hp}`, {
-        fontSize: '11px', fontFamily: 'Rajdhani', color: '#94a3b8',
-      })
-      const typeT = this.add.text(x + 10, y + 46, creature.type.toUpperCase(), {
-        fontSize: '10px', fontFamily: 'Rajdhani', fontStyle: 'bold', color: colors?.accent || '#94a3b8',
-      })
-
-      const zone = this.add.zone(x + 75, y + 40, 150, 80).setInteractive({ useHandCursor: true })
-      zone.on('pointerdown', () => {
-        panel.destroy(true)
-        this._forceSwitchPanel = null
-        this.playerActiveIdx = idx
-        // Sync back to BattleContainer via callback
-        if (this._onForceSwitch) this._onForceSwitch(idx)
-        this.drawPlayerCreature()
-        this.updateInfoPanels()
-        this.addLogLine(`Go, ${this.getPlayerCreature().name}!`)
-
-        // Animate switch-in, then continue the event chain or show buttons
-        const newSprite = this.playerSprite
-        if (newSprite) {
-          const fsx = newSprite.scaleX
-          const fsy = newSprite.scaleY
-          newSprite.setAlpha(0)
-          newSprite.scaleX = fsx * 0.5
-          newSprite.scaleY = fsy * 0.5
-          this.tweens.add({
-            targets: newSprite,
-            alpha: 1, scaleX: fsx, scaleY: fsy,
-            duration: 400, ease: 'Back.easeOut',
-            onComplete: () => {
-              if (onSwitchComplete) {
-                onSwitchComplete()
-              } else {
-                this.isAnimating = false
-                if (!this.battleOver) this.showMoveButtons()
-              }
-            },
-          })
-        } else {
-          if (onSwitchComplete) {
-            onSwitchComplete()
-          } else {
-            this.isAnimating = false
-            if (!this.battleOver) this.showMoveButtons()
-          }
-        }
-      })
-
-      panel.add([cardBg, nameT, hpT, typeT, zone])
-      col++
-    })
+    } else {
+      finish()
+    }
   }
 
   // ===================== ANIMATIONS =====================
@@ -723,8 +512,9 @@ export class BattleScene extends Phaser.Scene {
         this.addLogLine(`${event.data.name} used ${event.data.move}!`)
 
         // Swap to attack sprite
-        const attackKey = `${creatureObj.id}-attack`
-        const idleKey = `${creatureObj.id}-idle`
+        const art = resolveSpriteId(creatureObj)
+        const attackKey = `${art}-attack`
+        const idleKey = `${art}-idle`
         const hasAttackSprite = this.textures.exists(attackKey)
         if (hasAttackSprite && sprite.setTexture) {
           sprite.setTexture(attackKey)
@@ -845,8 +635,9 @@ export class BattleScene extends Phaser.Scene {
       }
 
       case 'miss': {
-        this.addLogLine(`${event.data.name}'s attack missed!`)
-        const popup = this.add.text(W / 2, H / 2, 'MISSED!', {
+        const dodged = !!event.data.dodged
+        this.addLogLine(dodged ? `${event.data.name} dodged the attack!` : `${event.data.name}'s attack missed!`)
+        const popup = this.add.text(W / 2, H / 2, dodged ? 'DODGED!' : 'MISSED!', {
           fontSize: '18px', fontFamily: 'Orbitron', fontStyle: 'bold', color: '#94a3b8',
         }).setOrigin(0.5).setAlpha(0)
 
@@ -1021,7 +812,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   spawnAttackParticles(isPlayer, moveType) {
-    const colors = PARTICLE_COLORS[moveType] || PARTICLE_COLORS.normal
+    const colors = PARTICLE_COLORS[moveType] || [hexToNum(this.typeColor(moveType).accent || '#718096'), 0xffffff]
     const targetX = isPlayer ? ENEMY_X : PLAYER_X
     const targetY = isPlayer ? ENEMY_Y : PLAYER_Y
     const sourceX = isPlayer ? PLAYER_X + 30 : ENEMY_X - 30

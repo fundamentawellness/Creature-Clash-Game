@@ -1,12 +1,11 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import Phaser from 'phaser'
 import { BattleScene } from '../game/scenes/BattleScene.js'
-import { CREATURES, CREATURE_LIST } from '../data/creatures.js'
 import { createBattleCreature, executeTurn } from '../systems/battleEngine.js'
-import { aiBuildTeam } from '../systems/ai.js'
-import { getAllCreatures, getAllCreatureList } from '../utils/customData.js'
+import { getAllCreatures, getAllCreatureList, getFullTypeChart, getFullTypeColors, getTypeNames } from '../utils/customData.js'
 import { buildRivalTeam } from '../data/campaign.js'
 import { MOVE_LEARN_LEVELS } from '../systems/progression.js'
+import BattleControls from './BattleControls.jsx'
 
 // Shared data store — scene reads on init
 let _pendingBattleData = null
@@ -36,6 +35,9 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
   const cooldownsRef = useRef({ player: 0, ai: 0 })
   const onBattleEndRef = useRef(onBattleEnd)
   const aiConfigRef = useRef(battleInfo?.aiConfig || { optimalChance: 0.5, switchBehavior: 'never', teamBuild: 'random' })
+  const typeChartRef = useRef(null)
+  const [controls, setControls] = useState(null)
+  const [logLines, setLogLines] = useState([])
 
   useEffect(() => { onBattleEndRef.current = onBattleEnd }, [onBattleEnd])
 
@@ -43,6 +45,7 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
     const scene = sceneRef.current
     if (!scene || scene.battleOver || scene.isAnimating) return
 
+    scene.isAnimating = true
     scene.hideMoveButtons()
 
     const result = executeTurn(
@@ -52,7 +55,8 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
       aiTeamRef.current,
       aiActiveIdxRef.current,
       aiConfigRef.current,
-      cooldownsRef.current
+      cooldownsRef.current,
+      typeChartRef.current
     )
 
     // Update cooldowns from engine result
@@ -124,6 +128,10 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
     }
 
     aiConfigRef.current = battleInfo.aiConfig || { optimalChance: 0.5, switchBehavior: 'never', teamBuild: 'random' }
+    const typeChart = getFullTypeChart(gameState)
+    const typeColors = getFullTypeColors(gameState)
+    const typeNames = getTypeNames(gameState)
+    typeChartRef.current = typeChart
 
     playerTeamRef.current = playerTeam
     aiTeamRef.current = aiTeam
@@ -136,6 +144,10 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
       difficulty: 'campaign', // legacy field, not used for logic
       onPlayerAction: (action) => handlePlayerAction(action),
       onBattleEnd: (result) => onBattleEndRef.current(result),
+      onControlsChange: (state) => setControls(state),
+      onLogChange: (lines) => setLogLines(lines),
+      typeColors,
+      typeNames,
     }
 
     class LiveBattleScene extends BattleScene {
@@ -167,10 +179,18 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
       }
     }, 50)
 
+    const refresh = () => game.scale?.refresh()
+    const raf = requestAnimationFrame(refresh)
+    const observer = new ResizeObserver(refresh)
+    if (containerRef.current) observer.observe(containerRef.current)
+
     return () => {
+      cancelAnimationFrame(raf)
+      observer.disconnect()
       clearInterval(poll)
       _pendingBattleData = null
       window.__battleScene = null
+      setControls(null)
       if (gameRef.current) {
         gameRef.current.destroy(true)
         gameRef.current = null
@@ -179,13 +199,35 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const typeColors = getFullTypeColors(gameState)
+  const typeNames = getTypeNames(gameState)
+
   return (
-    <div className="flex-1 flex items-center justify-center p-2 md:p-4">
-      <div
-        ref={containerRef}
-        className="rounded-xl overflow-hidden border border-slate-700/50 shadow-2xl"
-        style={{ maxWidth: 800, width: '100%', aspectRatio: '800/500' }}
-      />
+    <div className="flex-1 w-full max-w-6xl mx-auto px-2 py-2 sm:px-4 sm:py-4 flex flex-col lg:flex-row lg:items-start gap-3">
+      <div className="w-full lg:flex-1 flex justify-center">
+        <div
+          ref={containerRef}
+          className="w-full max-w-[800px] rounded-xl overflow-hidden border border-slate-700/50 shadow-2xl bg-[#0a0e1a]"
+          style={{ aspectRatio: '8 / 5' }}
+        />
+      </div>
+      <div className="w-full lg:w-96 shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <BattleControls
+          controls={controls}
+          logLines={logLines}
+          typeColors={typeColors}
+          typeNames={typeNames}
+          onAttack={(moveId) => handlePlayerAction({ type: 'attack', moveId })}
+          onRequestSwitch={() => sceneRef.current?.showSwitchPanel()}
+          onCancelSwitch={() => sceneRef.current?.cancelSwitch()}
+          onPickCreature={(index) => {
+            const scene = sceneRef.current
+            if (!scene) return
+            if (scene.controlMode === 'force') scene.confirmForceSwitch(index)
+            else handlePlayerAction({ type: 'switch', targetIndex: index })
+          }}
+        />
+      </div>
     </div>
   )
 }

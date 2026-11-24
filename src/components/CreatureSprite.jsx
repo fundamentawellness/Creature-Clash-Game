@@ -6,6 +6,7 @@ import { TYPE_COLORS } from '../data/types.js'
 
 export default function CreatureSprite({
   creatureId,
+  spriteId,
   creatureType,
   creatureName,
   size = 100,
@@ -15,7 +16,7 @@ export default function CreatureSprite({
   flip = false,
 }) {
   const [imgError, setImgError] = useState(false)
-  const spriteUrl = getIdleSprite(creatureId)
+  const spriteUrl = getIdleSprite(spriteId || creatureId)
   const showFallback = !spriteUrl || imgError
 
   if (showFallback && !locked) {

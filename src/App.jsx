@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, Component } from 'react'
-import { loadGame, saveGame, getDefaultSave } from './utils/saveManager.js'
+import { getDefaultSave, loadProfiles, writeProfiles } from './utils/saveManager.js'
 import TitleScreen from './components/TitleScreen.jsx'
 import TeamSelectScreen from './components/TeamSelectScreen.jsx'
 import BattleContainer from './components/BattleContainer.jsx'
@@ -14,6 +14,8 @@ import { getCurrentBattle } from './systems/campaignManager.js'
 import { getGymById, getZoneById } from './data/campaign.js'
 import MoveTutorScreen from './components/MoveTutorScreen.jsx'
 import CreaturePickModal from './components/CreaturePickModal.jsx'
+import ProfilePicker from './components/ProfilePicker.jsx'
+import { getNextReplayBattle } from './systems/campaignManager.js'
 
 // Error boundary to prevent crashes from losing save data
 class ErrorBoundary extends Component {
@@ -53,7 +55,9 @@ class ErrorBoundary extends Component {
 }
 
 function App() {
-  const [screen, setScreen] = useState('title')
+  const [screen, setScreen] = useState('profiles')
+  const [profiles, setProfiles] = useState(() => loadProfiles())
+  const [activeSlot, setActiveSlot] = useState(null)
   const [gameState, setGameState] = useState(null)
   const [battleResult, setBattleResult] = useState(null)
   const [currentBattleInfo, setCurrentBattleInfo] = useState(null)
@@ -64,16 +68,22 @@ function App() {
   const [creaturePick, setCreaturePick] = useState(null) // { creatureIds, onPick }
   const [rewardSplash, setRewardSplash] = useState(null) // { title, description }
 
-  // Load save on mount
+  // Write the active player's latest game into their slot. This only touches
+  // storage; React state is updated by the handlers that change the game.
   useEffect(() => {
-    const saved = loadGame()
-    if (saved) setGameState(saved)
-  }, [])
+    if (!profiles || activeSlot == null || !gameState) return
+    const slots = profiles.slots.map((slot, i) => i === activeSlot ? { ...slot, save: gameState } : slot)
+    writeProfiles({ ...profiles, activeSlot, slots })
+  }, [profiles, gameState, activeSlot])
 
-  // Auto-save when game state changes
-  useEffect(() => {
-    if (gameState) saveGame(gameState)
-  }, [gameState])
+  const commitProfiles = useCallback((updater) => {
+    setProfiles(prev => {
+      if (!prev) return prev
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      writeProfiles(next)
+      return next
+    })
+  }, [])
 
   const transitionTo = useCallback((nextScreen) => {
     setTransitioning(true)
@@ -86,10 +96,46 @@ function App() {
   // ===== TITLE SCREEN HANDLERS =====
 
   const handleNewGame = useCallback(() => {
-    const fresh = getDefaultSave()
-    setGameState(fresh)
+    setGameState(getDefaultSave())
     transitionTo('teamSelect')
   }, [transitionTo])
+
+  const handlePlaySlot = useCallback((index) => {
+    const save = profiles?.slots[index]?.save
+    if (!save) return
+    setActiveSlot(index)
+    setGameState(save)
+    commitProfiles(prev => ({ ...prev, activeSlot: index }))
+    setScreen('title')
+  }, [profiles, commitProfiles])
+
+  const handleCreateSlot = useCallback((index, meta) => {
+    commitProfiles(prev => {
+      const slots = prev.slots.map((slot, i) => i === index ? { ...slot, ...meta, save: slot.save } : slot)
+      return { ...prev, activeSlot: index, slots }
+    })
+    setActiveSlot(index)
+    setGameState(getDefaultSave())
+    setScreen('teamSelect')
+  }, [commitProfiles])
+
+  const handleUpdateSlot = useCallback((index, meta) => {
+    commitProfiles(prev => ({
+      ...prev,
+      slots: prev.slots.map((slot, i) => i === index ? { ...slot, ...meta } : slot),
+    }))
+  }, [commitProfiles])
+
+  const handleSwitchPlayer = useCallback(() => {
+    if (activeSlot != null && gameState) {
+      commitProfiles(prev => {
+        const slots = prev.slots.map((slot, i) => i === activeSlot ? { ...slot, save: gameState } : slot)
+        return { ...prev, activeSlot, slots }
+      })
+    }
+    setSettingsOpen(false)
+    transitionTo('profiles')
+  }, [activeSlot, gameState, commitProfiles, transitionTo])
 
   const handleContinue = useCallback(() => {
     if (gameState?.campaign?.playerName) {
@@ -160,8 +206,40 @@ function App() {
     transitionTo('result')
   }, [transitionTo])
 
+  const beginBattle = useCallback((battleInfo) => {
+    setCurrentBattleInfo(battleInfo)
+    setBattleKey(k => k + 1)
+    if (battleInfo.preBattleDialogue) {
+      const speaker = battleInfo.type === 'rival'
+        ? (gameState?.campaign?.rivalName || 'Rival')
+        : (battleInfo.leaderName || 'Leader')
+      setDialogue({
+        speakerName: speaker,
+        text: battleInfo.preBattleDialogue,
+        onDismiss: () => {
+          setDialogue(null)
+          transitionTo('battle')
+        },
+      })
+    } else {
+      transitionTo('battle')
+    }
+  }, [gameState, transitionTo])
+
   const handleBattleAgain = useCallback(() => {
     setBattleResult(null)
+
+    // A gym replay walks every trainer, then the leader, and does not jump
+    // back to the unfinished campaign fight.
+    if (currentBattleInfo?.replay) {
+      const nextReplay = getNextReplayBattle(currentBattleInfo)
+      if (!nextReplay) {
+        transitionTo('campaignMap')
+        return
+      }
+      beginBattle(nextReplay)
+      return
+    }
 
     // Get the next battle from the updated campaign state
     const campaign = gameState?.campaign
@@ -171,7 +249,6 @@ function App() {
     }
 
     const next = getCurrentBattle(campaign)
-    console.log('[handleBattleAgain] next battle:', next)
 
     if (!next) {
       // Campaign complete or no next battle
@@ -236,26 +313,8 @@ function App() {
       return
     }
 
-    setCurrentBattleInfo(battleInfo)
-    setBattleKey(k => k + 1)
-
-    // Show pre-battle dialogue for leaders/rivals
-    if (battleInfo.preBattleDialogue) {
-      const speaker = battleInfo.type === 'rival'
-        ? (campaign.rivalName || 'Rival')
-        : (battleInfo.leaderName || 'Leader')
-      setDialogue({
-        speakerName: speaker,
-        text: battleInfo.preBattleDialogue,
-        onDismiss: () => {
-          setDialogue(null)
-          transitionTo('battle')
-        },
-      })
-    } else {
-      transitionTo('battle')
-    }
-  }, [transitionTo, gameState])
+    beginBattle(battleInfo)
+  }, [transitionTo, gameState, currentBattleInfo, beginBattle])
 
   // ===== GAME STATE UPDATE =====
 
@@ -267,6 +326,12 @@ function App() {
   }, [])
 
   const handleResetGame = useCallback(() => {
+    if (activeSlot != null) {
+      commitProfiles(prev => ({
+        ...prev,
+        slots: prev.slots.map((slot, i) => i === activeSlot ? { ...slot, save: null } : slot),
+      }))
+    }
     setGameState(null)
     setBattleResult(null)
     setCurrentBattleInfo(null)
@@ -274,21 +339,35 @@ function App() {
     setCreaturePick(null)
     setRewardSplash(null)
     setScreen('title')
-  }, [])
+  }, [activeSlot, commitProfiles])
 
   // ===== RENDER =====
 
   const renderScreen = () => {
     switch (screen) {
+      case 'profiles':
+        return profiles ? (
+          <ProfilePicker
+            profiles={profiles}
+            onPlay={handlePlaySlot}
+            onCreate={handleCreateSlot}
+            onUpdate={handleUpdateSlot}
+          />
+        ) : (
+          <div className="flex-1 flex items-center justify-center font-ui text-slate-400">Loading players...</div>
+        )
       case 'title':
         return (
           <TitleScreen
             hasSave={!!gameState}
             forgeUnlocked={!!gameState?.rewards?.creatureForge}
+            profileName={profiles?.slots?.[activeSlot]?.name || ''}
+            profileColor={profiles?.slots?.[activeSlot]?.color}
             onNewGame={handleNewGame}
             onContinue={handleContinue}
             onImport={handleImportComplete}
             onForge={() => transitionTo('forge')}
+            onSwitchPlayer={handleSwitchPlayer}
           />
         )
       case 'teamSelect':
@@ -305,6 +384,7 @@ function App() {
       case 'nameEntry':
         return (
           <NameEntryScreen
+            initialPlayerName={profiles?.slots?.[activeSlot]?.name || ''}
             onConfirm={handleNameConfirm}
             onBack={() => transitionTo('teamSelect')}
           />
@@ -378,10 +458,10 @@ function App() {
     <ErrorBoundary onReset={handleResetGame}>
       <div className="min-h-screen flex flex-col relative overflow-x-hidden">
         {/* Settings gear */}
-        {screen !== 'battle' && (
+        {screen !== 'battle' && screen !== 'profiles' && (
           <button
             onClick={() => setSettingsOpen(true)}
-            className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700 hover:border-slate-500 transition-all cursor-pointer"
+            className="fixed top-[max(0.75rem,env(safe-area-inset-top))] right-3 z-50 w-12 h-12 flex items-center justify-center rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-600 transition-all cursor-pointer"
             title="Settings"
           >
             <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -397,6 +477,7 @@ function App() {
             onClose={() => setSettingsOpen(false)}
             onImport={handleImportComplete}
             onReset={handleResetGame}
+            slotName={profiles?.slots?.[activeSlot]?.name || ''}
           />
         )}
 
@@ -430,7 +511,7 @@ function App() {
                 {rewardSplash.title}
               </h2>
               <p className="font-ui text-lg text-slate-300 mb-6">{rewardSplash.description}</p>
-              <p className="font-ui text-sm text-slate-500 animate-pulse">Click to continue</p>
+              <p className="font-ui text-sm text-slate-500 animate-pulse">Tap to continue</p>
             </div>
           </div>
         )}

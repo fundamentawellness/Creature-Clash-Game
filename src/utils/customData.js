@@ -75,3 +75,16 @@ export function getAllTypes(gameState) {
   const custom = (gameState?.customTypes || []).map(t => t.id)
   return [...TYPES, ...custom]
 }
+
+/**
+ * Display names for official and Forge types.
+ * Official types use their id ("fire"). Custom types use the name the kid typed.
+ */
+export function getTypeNames(gameState) {
+  const names = {}
+  for (const typeId of TYPES) names[typeId] = typeId
+  for (const customType of (gameState?.customTypes || [])) {
+    names[customType.id] = customType.name || customType.id
+  }
+  return names
+}

@@ -1,14 +1,14 @@
 import { useState, useRef } from 'react'
-import { exportSave, importSave, resetGame } from '../utils/saveManager.js'
+import { exportSave, importSave } from '../utils/saveManager.js'
 
-export default function SettingsMenu({ gameState, onClose, onImport, onReset }) {
+export default function SettingsMenu({ gameState, onClose, onImport, onReset, slotName }) {
   const [confirmReset, setConfirmReset] = useState(false)
   const [importError, setImportError] = useState(null)
   const [importSuccess, setImportSuccess] = useState(false)
   const fileRef = useRef(null)
 
   const handleExport = () => {
-    exportSave()
+    exportSave(gameState, slotName || gameState?.campaign?.playerName || 'save')
   }
 
   const handleFileChange = async (e) => {
@@ -32,7 +32,6 @@ export default function SettingsMenu({ gameState, onClose, onImport, onReset }) 
   }
 
   const handleReset = () => {
-    resetGame()
     onReset()
     onClose()
   }
@@ -47,7 +46,7 @@ export default function SettingsMenu({ gameState, onClose, onImport, onReset }) 
           <h3 className="font-game text-xl font-bold tracking-wider text-slate-100">SETTINGS</h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+            className="w-11 h-11 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer text-xl"
           >
             &times;
           </button>
@@ -125,7 +124,7 @@ export default function SettingsMenu({ gameState, onClose, onImport, onReset }) 
           ) : (
             <div className="bg-red-950/30 border border-red-500/30 rounded-xl p-4">
               <p className="font-ui text-sm text-red-300 mb-3">
-                This will delete ALL progress. Are you sure?
+                This deletes {slotName ? `${slotName}'s` : "this player's"} creatures and badges. Other players keep their saves.
               </p>
               <div className="flex gap-2">
                 <button

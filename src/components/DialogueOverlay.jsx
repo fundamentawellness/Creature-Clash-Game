@@ -37,7 +37,7 @@ export default function DialogueOverlay({ speakerName, text, onDismiss }) {
         <p className="font-game text-sm font-bold text-amber-400 uppercase tracking-wider mb-2">{speakerName}</p>
         <p className="font-ui text-base text-slate-200 leading-relaxed min-h-[3rem]">{displayedText}</p>
         {complete && (
-          <p className="font-ui text-xs text-slate-500 mt-3 text-right animate-pulse">Click to continue ▸</p>
+          <p className="font-ui text-sm text-slate-400 mt-3 text-right animate-pulse">Tap to continue ▸</p>
         )}
       </div>
     </div>

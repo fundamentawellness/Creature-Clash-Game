@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
-import { ZONES, getAiConfigForBattle, getBattleTeamSize } from '../data/campaign.js'
+import { ZONES } from '../data/campaign.js'
 import { TYPE_COLORS } from '../data/types.js'
-import { isGymUnlocked, isRivalUnlocked, getNextGymBattle, getGymProgress, getBadgeCount } from '../systems/campaignManager.js'
+import { isGymUnlocked, isRivalUnlocked, getNextGymBattle, getGymProgress, getBadgeCount, buildGymBattleInfo } from '../systems/campaignManager.js'
 
 export default function CampaignMapScreen({ gameState, onSelectBattle, onBadges, onMoveTutor, onBack, onChangeTeam }) {
   const [expandedGym, setExpandedGym] = useState(null)
@@ -18,42 +18,15 @@ export default function CampaignMapScreen({ gameState, onSelectBattle, onBadges,
     const next = getNextGymBattle(campaign, gym.id)
 
     if (isComplete) {
-      // Replay: start from first trainer
-      handleFight({
-        type: 'trainer', gymId: gym.id, trainerIndex: 0, zoneId: zone.id,
-        aiConfig: zone.aiConfig,
-        aiTeamSpec: gym.trainers[0].creatures,
-        aiTeamSize: getBattleTeamSize({ type: 'trainer', zoneId: zone.id }),
-        replay: true,
-        trainerName: gym.trainers[0].title,
-      })
+      // Replay the whole gym: every trainer, then the leader.
+      const replay = buildGymBattleInfo(gym, zone, { type: 'trainer', trainerIndex: 0 }, { replay: true })
+      if (replay) handleFight(replay)
       return
     }
 
     if (!next) return
-
-    if (next.type === 'trainer') {
-      const trainer = gym.trainers[next.trainerIndex]
-      handleFight({
-        type: 'trainer', gymId: gym.id, trainerIndex: next.trainerIndex, zoneId: zone.id,
-        aiConfig: zone.aiConfig,
-        aiTeamSpec: trainer.creatures,
-        aiTeamSize: getBattleTeamSize({ type: 'trainer', zoneId: zone.id }),
-        trainerName: trainer.title,
-      })
-    } else if (next.type === 'leader') {
-      handleFight({
-        type: 'leader', gymId: gym.id, trainerIndex: -1, zoneId: zone.id,
-        aiConfig: zone.leaderAiConfig,
-        aiTeamSpec: gym.leader.creatures,
-        aiTeamSize: gym.leader.teamSize,
-        leaderName: gym.leader.name,
-        preBattleDialogue: gym.leader.preBattleDialogue,
-        postDefeatDialogue: gym.leader.postDefeatDialogue,
-        badgeName: gym.badge.name,
-        badgeIcon: gym.badge.icon,
-      })
-    }
+    const battle = buildGymBattleInfo(gym, zone, next, { replay: false })
+    if (battle) handleFight(battle)
   }
 
   const handleRivalFight = (zone) => {
@@ -76,7 +49,7 @@ export default function CampaignMapScreen({ gameState, onSelectBattle, onBadges,
     <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4 py-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <button onClick={onBack} className="font-ui font-bold text-slate-400 hover:text-slate-200 uppercase tracking-wider text-sm transition-colors cursor-pointer">
+        <button onClick={onBack} className="font-ui font-bold text-slate-300 hover:text-white uppercase tracking-wider text-sm transition-colors cursor-pointer px-2">
           &larr; Menu
         </button>
         <div className="text-center">
@@ -95,16 +68,16 @@ export default function CampaignMapScreen({ gameState, onSelectBattle, onBadges,
       {/* Action bar */}
       <div className="flex gap-2 mb-4 justify-center flex-wrap">
         <button onClick={onChangeTeam}
-          className="px-3 py-1.5 rounded-lg text-xs font-ui font-bold uppercase bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all cursor-pointer">
+          className="px-4 py-2 rounded-lg text-sm font-ui font-bold uppercase bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 border border-slate-700 transition-all cursor-pointer">
           Change Team
         </button>
         <button onClick={onBadges}
-          className="px-3 py-1.5 rounded-lg text-xs font-ui font-bold uppercase bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-800/30 transition-all cursor-pointer">
+          className="px-4 py-2 rounded-lg text-sm font-ui font-bold uppercase bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-amber-400 border border-amber-800/30 transition-all cursor-pointer">
           🏅 Badges
         </button>
         {rewards.moveTutor && (
           <button onClick={onMoveTutor}
-            className="px-3 py-1.5 rounded-lg text-xs font-ui font-bold uppercase bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-800/30 transition-all cursor-pointer">
+            className="px-4 py-2 rounded-lg text-sm font-ui font-bold uppercase bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-cyan-400 border border-cyan-800/30 transition-all cursor-pointer">
             📚 Move Tutor
           </button>
         )}
@@ -180,8 +153,8 @@ export default function CampaignMapScreen({ gameState, onSelectBattle, onBadges,
                       {isExpanded && unlocked && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleGymFight(gym, zone) }}
-                          className="mt-2 w-full py-1.5 rounded-lg text-xs font-ui font-bold uppercase
-                            bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500
+                          className="mt-2 w-full py-3 rounded-lg text-sm font-ui font-bold uppercase
+                            bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 active:from-emerald-500
                             border border-emerald-500/30 text-white transition-all cursor-pointer">
                           {isComplete ? 'Replay' : 'Fight!'}
                         </button>
@@ -213,8 +186,8 @@ export default function CampaignMapScreen({ gameState, onSelectBattle, onBadges,
                 {rivalUnlocked && !rivalBeaten && (
                   <button
                     onClick={() => handleRivalFight(zone)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-ui font-bold uppercase
-                      bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500
+                    className="px-4 py-3 rounded-lg text-sm font-ui font-bold uppercase
+                      bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 active:from-red-500
                       border border-red-500/30 text-white transition-all cursor-pointer">
                     Challenge
                   </button>

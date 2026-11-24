@@ -1,5 +1,6 @@
 // Damage calculation system — pure functions, no side effects
 import { TYPE_CHART } from '../data/types.js'
+import { getStatMultiplier } from './statStages.js'
 
 /**
  * Look up type effectiveness multiplier from the chart.
@@ -22,25 +23,43 @@ export function getEffectivenessText(multiplier) {
 }
 
 /**
+ * Hit chance after the defender's evasion stages.
+ * Each evasion stage is the same 25% step as other stats: +1 evasion
+ * divides accuracy by 1.25, so a sure hit becomes an 80% hit.
+ * Status moves are not rolled (callers skip this).
+ * @returns {number} 0–100
+ */
+export function getHitChance(move, defender) {
+  const base = move.accuracy == null ? 100 : move.accuracy
+  const evasionStage = defender?.statStages?.evasion || 0
+  const evasion = getStatMultiplier(evasionStage)
+  if (evasion <= 0) return 100
+  return Math.max(0, Math.min(100, base / evasion))
+}
+
+/**
  * Calculate damage for one attack.
  *
  * @param {object} attacker — creature state with currentStats, type, statStages
  * @param {object} move — move definition from MOVES
  * @param {object} defender — creature state with currentStats, type, statStages
  * @param {function} [rng] — optional random function (returns 0-1) for testing
- * @returns {{ damage: number, effectiveness: number, stab: boolean, missed: boolean }}
+ * @param {object} [typeChart] — full chart, including Forge custom types
+ * @returns {{ damage: number, effectiveness: number, stab: boolean, missed: boolean, dodged: boolean }}
  */
 export function calculateDamage(attacker, move, defender, rng = Math.random, typeChart) {
-  // Status moves deal no damage
+  // Status moves deal no damage and do not check accuracy or evasion
   if (move.category === 'status') {
-    return { damage: 0, effectiveness: 1, stab: false, missed: false }
+    return { damage: 0, effectiveness: 1, stab: false, missed: false, dodged: false }
   }
 
-  // Miss check: roll 0-100, miss if roll > accuracy
-  if (move.accuracy !== null && move.accuracy < 100) {
+  // Miss check. Evasion can make even a 100% move miss.
+  const hitChance = getHitChance(move, defender)
+  if (hitChance < 100) {
     const hitRoll = rng() * 100
-    if (hitRoll > move.accuracy) {
-      return { damage: 0, effectiveness: 1, stab: false, missed: true }
+    if (hitRoll > hitChance) {
+      const dodged = (defender?.statStages?.evasion || 0) > 0
+      return { damage: 0, effectiveness: 1, stab: false, missed: true, dodged }
     }
   }
 
@@ -61,7 +80,7 @@ export function calculateDamage(attacker, move, defender, rng = Math.random, typ
 
   // Immune — no damage
   if (effectiveness === 0) {
-    return { damage: 0, effectiveness: 0, stab, missed: false }
+    return { damage: 0, effectiveness: 0, stab, missed: false, dodged: false }
   }
 
   // Random factor: 0.85 to 1.0
@@ -77,5 +96,5 @@ export function calculateDamage(attacker, move, defender, rng = Math.random, typ
   // Minimum 1 damage on hit
   const damage = Math.max(1, Math.floor(raw))
 
-  return { damage, effectiveness, stab, missed: false }
+  return { damage, effectiveness, stab, missed: false, dodged: false }
 }

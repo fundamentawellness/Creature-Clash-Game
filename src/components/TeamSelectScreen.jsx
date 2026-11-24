@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { CREATURES, CREATURE_LIST } from '../data/creatures.js'
 import { MOVES } from '../data/moves.js'
 import { TYPE_COLORS, TYPE_EMOJIS } from '../data/types.js'
-import { getAllCreatures, getAllCreatureList, getFullTypeColors } from '../utils/customData.js'
+import { getAllCreatures, getAllCreatureList, getFullTypeColors, getTypeNames } from '../utils/customData.js'
 import CreatureSprite from './CreatureSprite.jsx'
 
 const STAT_LABELS = { hp: 'HP', atk: 'ATK', def: 'DEF', spd: 'SPD', spc: 'SPC' }
@@ -26,18 +26,19 @@ function StatBar({ label, value, type }) {
   )
 }
 
-function TypeBadge({ type }) {
-  const colors = TYPE_COLORS[type]
+function TypeBadge({ type, typeColors, typeNames }) {
+  const colors = typeColors?.[type] || TYPE_COLORS[type]
+  const label = typeNames?.[type] || type
   return (
     <span
       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-ui font-bold uppercase tracking-wider"
       style={{
-        background: colors?.dark + 'CC',
-        color: colors?.light,
-        border: `1px solid ${colors?.accent}50`,
+        background: (colors?.dark || '#334155') + 'CC',
+        color: colors?.light || '#e2e8f0',
+        border: `1px solid ${colors?.accent || '#718096'}50`,
       }}
     >
-      {TYPE_EMOJIS[type]} {type}
+      {TYPE_EMOJIS[type] || '✦'} {label}
     </span>
   )
 }
@@ -73,11 +74,13 @@ function MoveCard({ moveId, creatureType }) {
   )
 }
 
-function CreatureCard({ creatureId, progress, isUnlocked, isSelected, isExpanded, onToggleExpand, onToggleSelect, creaturesMap }) {
+function CreatureCard({ creatureId, progress, isUnlocked, isSelected, isExpanded, onToggleExpand, onToggleSelect, creaturesMap, typeColors, typeNames }) {
   const template = (creaturesMap || CREATURES)[creatureId]
   if (!template) return null
 
-  const colors = TYPE_COLORS[template.type]
+  const colors = typeColors?.[template.type] || TYPE_COLORS[template.type] || {
+    accent: '#718096', light: '#e2e8f0', dark: '#334155', bg: '#1e293b',
+  }
   const level = progress?.level || 1
   const currentMoves = progress?.currentMoves || [template.movePool[0], template.movePool[1]]
 
@@ -93,6 +96,7 @@ function CreatureCard({ creatureId, progress, isUnlocked, isSelected, isExpanded
         <div className="flex items-center gap-3">
           <CreatureSprite
             creatureId={creatureId}
+            spriteId={template.spriteId}
             creatureType={template.type}
             creatureName={template.name}
             size={48}
@@ -128,9 +132,10 @@ function CreatureCard({ creatureId, progress, isUnlocked, isSelected, isExpanded
           <div className="flex items-center gap-3">
             <CreatureSprite
               creatureId={creatureId}
+              spriteId={template.spriteId}
               creatureType={template.type}
               creatureName={template.name}
-              size={48}
+              size={56}
               locked={!isUnlocked}
             />
             <div>
@@ -138,7 +143,7 @@ function CreatureCard({ creatureId, progress, isUnlocked, isSelected, isExpanded
                 {template.name}
               </p>
               <div className="flex items-center gap-2 mt-0.5">
-                <TypeBadge type={template.type} />
+                <TypeBadge type={template.type} typeColors={typeColors} typeNames={typeNames} />
                 <span className="text-xs font-ui text-slate-500 uppercase">{template.archetype.replace('_', ' ')}</span>
               </div>
             </div>
@@ -149,7 +154,7 @@ function CreatureCard({ creatureId, progress, isUnlocked, isSelected, isExpanded
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onToggleSelect(creatureId) }}
-              className={`px-3 py-1 rounded-lg text-xs font-ui font-bold uppercase tracking-wider transition-all ${
+              className={`min-h-11 px-4 py-2 rounded-lg text-sm font-ui font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 isSelected
                   ? 'text-white'
                   : 'bg-slate-700 hover:bg-slate-600 text-slate-300 border border-slate-600'
@@ -215,6 +220,8 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
   // Sort: unlocked first (by type), locked last
   const allCreaturesList = useMemo(() => getAllCreatureList(gameState), [gameState])
   const allCreaturesMap = useMemo(() => getAllCreatures(gameState), [gameState])
+  const typeColors = useMemo(() => getFullTypeColors(gameState), [gameState])
+  const typeNames = useMemo(() => getTypeNames(gameState), [gameState])
 
   const sortedCreatures = useMemo(() => {
     const all = allCreaturesList.map(c => c.id)
@@ -288,16 +295,18 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
       </div>
 
       {/* Team preview slots */}
-      <div className="flex gap-3 justify-center mb-6">
+      <div className="grid gap-2 justify-center mb-4" style={{ gridTemplateColumns: `repeat(${maxTeam}, minmax(0, 7.5rem))` }}>
         {Array.from({ length: maxTeam }, (_, i) => i).map(slot => {
           const id = selected[slot]
           const template = id ? (allCreaturesMap[id] || CREATURES[id]) : null
-          const colors = template ? TYPE_COLORS[template.type] : null
+          const colors = template
+            ? (typeColors[template.type] || TYPE_COLORS[template.type] || { light: '#e2e8f0', accent: '#718096', dark: '#334155' })
+            : null
 
           return (
             <div
               key={slot}
-              className="w-28 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all"
+              className="min-h-24 rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all px-1"
               style={{
                 borderColor: colors ? colors.accent + '80' : '#334155',
                 background: colors ? colors.dark + '20' : 'transparent',
@@ -308,11 +317,12 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
                 <>
                   <CreatureSprite
                     creatureId={id}
+                    spriteId={template.spriteId}
                     creatureType={template.type}
                     creatureName={template.name}
                     size={48}
                   />
-                  <span className="font-ui text-xs font-bold mt-0.5" style={{ color: colors.light }}>
+                  <span className="font-ui text-xs font-bold mt-0.5 truncate max-w-full" style={{ color: colors.light }}>
                     {template.name}
                   </span>
                 </>
@@ -336,14 +346,14 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
               <div key={preset.name} className="flex items-center gap-0 group">
                 <button
                   onClick={() => handleLoadPreset(preset)}
-                  className="px-3 py-1.5 rounded-l-lg text-xs font-ui font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600/50 border-r-0 transition-all cursor-pointer"
+                  className="px-3 py-2 rounded-l-lg text-sm font-ui font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600/50 border-r-0 transition-all cursor-pointer"
                 >
                   {preset.name}
                   <span className="ml-1.5 text-slate-500 font-normal">({preset.creatureIds.length})</span>
                 </button>
                 <button
                   onClick={() => handleDeletePreset(preset.name)}
-                  className="px-1.5 py-1.5 rounded-r-lg text-xs font-ui font-bold bg-slate-800 hover:bg-red-900/50 text-slate-600 hover:text-red-400 border border-slate-600/50 border-l-0 transition-all cursor-pointer"
+                  className="px-3 py-2 rounded-r-lg text-sm font-ui font-bold bg-slate-800 hover:bg-red-900/50 text-slate-300 hover:text-red-300 border border-slate-600/50 border-l-0 transition-all cursor-pointer"
                 >
                   ✕
                 </button>
@@ -373,13 +383,15 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
               onToggleExpand={handleToggleExpand}
               onToggleSelect={handleToggleSelect}
               creaturesMap={allCreaturesMap}
+              typeColors={typeColors}
+              typeNames={typeNames}
             />
           ))}
         </div>
       </div>
 
       {/* Enter Battle + Save Team buttons */}
-      <div className="mt-6 flex justify-center items-center gap-3">
+      <div className="sticky bottom-0 z-20 mt-4 -mx-4 px-4 py-3 bg-[#0a0e1a]/95 backdrop-blur border-t border-slate-800 flex flex-col-reverse sm:flex-row justify-center items-stretch sm:items-center gap-3">
         {presetsUnlocked && selected.length === maxTeam && !showSaveInput && presets.length < MAX_PRESETS && (
           <button
             onClick={() => { setShowSaveInput(true); setPresetName('') }}
@@ -420,7 +432,7 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
         <button
           onClick={() => onConfirm(selected)}
           disabled={selected.length !== maxTeam}
-          className="px-10 py-4 rounded-xl font-game text-xl font-bold uppercase tracking-wider
+          className="w-full sm:w-auto px-8 py-4 rounded-xl font-game text-lg sm:text-xl font-bold uppercase tracking-wider
             transition-all cursor-pointer
             disabled:opacity-30 disabled:cursor-not-allowed
             bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400

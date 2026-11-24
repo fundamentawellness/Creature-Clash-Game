@@ -2,8 +2,28 @@
 import { CREATURES } from '../data/creatures.js'
 import { MOVES } from '../data/moves.js'
 
-const SAVE_KEY = 'battle-arena-save'
+const LEGACY_SAVE_KEY = 'battle-arena-save'
+const PROFILE_KEY = 'battle-arena-profiles'
 const CURRENT_VERSION = 2
+const PROFILE_VERSION = 1
+
+export const SLOT_COUNT = 4
+
+export const SLOT_COLORS = [
+  { id: 'ember', hex: '#F56565', label: 'Ember' },
+  { id: 'tide', hex: '#4299E1', label: 'Tide' },
+  { id: 'leaf', hex: '#48BB78', label: 'Leaf' },
+  { id: 'spark', hex: '#ECC94B', label: 'Spark' },
+  { id: 'stone', hex: '#A8895A', label: 'Stone' },
+  { id: 'venom', hex: '#9F7AEA', label: 'Venom' },
+  { id: 'sunset', hex: '#ED8936', label: 'Sunset' },
+  { id: 'rose', hex: '#ED64A6', label: 'Rose' },
+]
+
+export const SLOT_AVATARS = [
+  'emberpaw', 'aquafin', 'leafyn', 'voltzap',
+  'bouldar', 'dustail', 'venomaw', 'charrok',
+]
 
 const STARTER_CREATURE_IDS = [
   'emberpaw', 'charrok', 'aquafin', 'shellguard', 'leafyn',
@@ -169,13 +189,131 @@ function migrateSave(data) {
 }
 
 /**
- * Save game state to localStorage.
+ * A blank profile file: four named slots, none of them holding a game yet.
  */
-export function saveGame(gameState) {
+export function createEmptyProfiles() {
+  return {
+    version: PROFILE_VERSION,
+    activeSlot: null,
+    slots: Array.from({ length: SLOT_COUNT }, (_, index) => ({
+      id: `slot-${index + 1}`,
+      name: '',
+      color: SLOT_COLORS[index % SLOT_COLORS.length].hex,
+      avatar: SLOT_AVATARS[index % SLOT_AVATARS.length],
+      save: null,
+    })),
+  }
+}
+
+function prepareSave(data) {
+  if (!data || typeof data !== 'object') return null
+  let save = data
+  if (save.version !== CURRENT_VERSION) {
+    save = migrateSave(save)
+  }
+  const { valid, errors } = validateSave(save)
+  if (!valid) {
+    console.warn('Save data validation warnings:', errors)
+  }
+  return save
+}
+
+/**
+ * Fill missing slot fields and migrate any old game save sitting inside a slot.
+ */
+export function normalizeProfiles(data) {
+  const base = createEmptyProfiles()
+  const incomingSlots = Array.isArray(data?.slots) ? data.slots : []
+  const slots = base.slots.map((empty, index) => {
+    const incoming = incomingSlots[index] || {}
+    return {
+      id: typeof incoming.id === 'string' ? incoming.id : empty.id,
+      name: typeof incoming.name === 'string' ? incoming.name : '',
+      color: typeof incoming.color === 'string' ? incoming.color : empty.color,
+      avatar: typeof incoming.avatar === 'string' ? incoming.avatar : empty.avatar,
+      save: incoming.save ? prepareSave(incoming.save) : null,
+    }
+  })
+  const activeSlot = Number.isInteger(data?.activeSlot) && data.activeSlot >= 0 && data.activeSlot < SLOT_COUNT
+    ? data.activeSlot
+    : null
+  return { version: PROFILE_VERSION, activeSlot, slots }
+}
+
+/**
+ * Copy a single old save into slot 1. Other slots stay empty.
+ * Returns a new profiles object. Does not touch storage.
+ */
+export function profilesFromLegacySave(legacySave) {
+  const profiles = createEmptyProfiles()
+  const save = prepareSave(legacySave)
+  if (!save) return profiles
+  const name = save.campaign?.playerName?.trim() || 'Player 1'
+  profiles.slots[0] = { ...profiles.slots[0], name, save }
+  return profiles
+}
+
+export function writeProfiles(profiles) {
   try {
-    const json = JSON.stringify(gameState)
-    localStorage.setItem(SAVE_KEY, json)
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(profiles))
     return true
+  } catch (err) {
+    console.error('Failed to save profiles:', err)
+    return false
+  }
+}
+
+function readLegacySave() {
+  try {
+    const json = localStorage.getItem(LEGACY_SAVE_KEY)
+    if (!json) return null
+    return JSON.parse(json)
+  } catch (err) {
+    console.error('Failed to read old save:', err)
+    return null
+  }
+}
+
+/**
+ * Load the family profile file.
+ * If the device still has the old single save and no profile file, that save
+ * is copied into slot 1 and the old key is removed so it cannot be lost or
+ * applied twice.
+ */
+export function loadProfiles() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY)
+    if (raw) {
+      const profiles = normalizeProfiles(JSON.parse(raw))
+      writeProfiles(profiles)
+      if (localStorage.getItem(LEGACY_SAVE_KEY)) {
+        localStorage.removeItem(LEGACY_SAVE_KEY)
+      }
+      return profiles
+    }
+  } catch (err) {
+    console.error('Failed to load profiles:', err)
+  }
+
+  const legacy = readLegacySave()
+  const profiles = legacy ? profilesFromLegacySave(legacy) : createEmptyProfiles()
+  if (legacy && writeProfiles(profiles)) {
+    try { localStorage.removeItem(LEGACY_SAVE_KEY) } catch { /* the copy is already in the profile file */ }
+  }
+  return profiles
+}
+
+/**
+ * Save one slot's game. Pass the whole profiles object from React when you
+ * already have it; otherwise this reads, updates one slot, and writes.
+ */
+export function saveGame(gameState, slotIndex = 0) {
+  try {
+    const profiles = loadProfiles()
+    if (!profiles.slots[slotIndex]) return false
+    profiles.slots[slotIndex] = { ...profiles.slots[slotIndex], save: gameState }
+    profiles.activeSlot = slotIndex
+    return writeProfiles(profiles)
   } catch (err) {
     console.error('Failed to save game:', err)
     return false
@@ -183,60 +321,53 @@ export function saveGame(gameState) {
 }
 
 /**
- * Load game state from localStorage. Returns null if no save exists.
- * Applies version migration if needed.
+ * Load one slot's game, or null if that slot is empty.
  */
-export function loadGame() {
-  try {
-    const json = localStorage.getItem(SAVE_KEY)
-    if (!json) return null
-
-    let data = JSON.parse(json)
-
-    // Migrate if needed
-    if (data.version !== CURRENT_VERSION) {
-      data = migrateSave(data)
-      saveGame(data) // Persist the migrated version
-    }
-
-    const { valid, errors } = validateSave(data)
-    if (!valid) {
-      console.warn('Save data validation warnings:', errors)
-    }
-
-    return data
-  } catch (err) {
-    console.error('Failed to load game:', err)
-    return null
-  }
+export function loadGame(slotIndex = 0) {
+  const profiles = loadProfiles()
+  return profiles.slots[slotIndex]?.save || null
 }
 
 /**
- * Clear save data from localStorage.
+ * Clear one player's game, but keep their name, color, and avatar.
+ * With no index, clears every slot (used by older callers).
  */
-export function resetGame() {
+export function resetGame(slotIndex) {
   try {
-    localStorage.removeItem(SAVE_KEY)
-    return true
+    if (slotIndex == null) {
+      localStorage.removeItem(PROFILE_KEY)
+      localStorage.removeItem(LEGACY_SAVE_KEY)
+      return true
+    }
+    const profiles = loadProfiles()
+    if (!profiles.slots[slotIndex]) return false
+    profiles.slots[slotIndex] = { ...profiles.slots[slotIndex], save: null }
+    return writeProfiles(profiles)
   } catch (err) {
     console.error('Failed to reset game:', err)
     return false
   }
 }
 
+function slugify(label) {
+  const slug = String(label || 'save').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  return slug || 'save'
+}
+
 /**
- * Export save as a downloadable JSON file.
- * Filename: battle-arena-save-YYYY-MM-DD.json
+ * Export one player's save as a downloadable JSON file.
+ * The file is the game itself (not the whole family profile), so an older
+ * import still works.
  */
-export function exportSave() {
-  const json = localStorage.getItem(SAVE_KEY)
-  if (!json) {
+export function exportSave(gameState, label) {
+  if (!gameState) {
     console.warn('No save data to export')
     return false
   }
 
   const date = new Date().toISOString().split('T')[0]
-  const filename = `battle-arena-save-${date}.json`
+  const filename = `battle-arena-${slugify(label)}-${date}.json`
+  const json = JSON.stringify(gameState, null, 2)
 
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -265,17 +396,14 @@ export function importSave(file) {
       try {
         const data = JSON.parse(event.target.result)
 
-        // Migrate first, then validate
-        const migrated = data.version !== CURRENT_VERSION ? migrateSave(data) : data
+        // Migrate first, then validate. The caller stores it in the active slot.
+        const migrated = prepareSave(data)
         const { valid, errors } = validateSave(migrated)
 
-        if (!valid) {
-          resolve({ success: false, state: null, errors })
+        if (!migrated || !valid) {
+          resolve({ success: false, state: null, errors: errors.length ? errors : ['Save file could not be read'] })
           return
         }
-
-        // Save to localStorage
-        saveGame(migrated)
 
         resolve({ success: true, state: migrated, errors: [] })
       } catch (err) {

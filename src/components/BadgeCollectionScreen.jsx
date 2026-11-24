@@ -27,7 +27,6 @@ export default function BadgeCollectionScreen({ gameState, onBack }) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {zone.gyms.map(gym => {
               const earned = earnedIds.has(gym.id)
-              const badge = badges.find(b => b.gymId === gym.id)
               return (
                 <div key={gym.id}
                   className={`rounded-xl border p-4 text-center transition-all ${

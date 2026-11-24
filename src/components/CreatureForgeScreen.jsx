@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { CREATURES } from '../data/creatures.js'
-import { MOVES } from '../data/moves.js'
-import { TYPES, TYPE_COLORS, TYPE_CHART } from '../data/types.js'
+import { TYPES, TYPE_COLORS } from '../data/types.js'
 import CreatureCreator from './CreatureCreator.jsx'
 import TypeCreator from './TypeCreator.jsx'
+import CreatureSprite from './CreatureSprite.jsx'
 
 const MAX_CUSTOM_CREATURES = 5
 const MAX_CUSTOM_TYPES = 2
@@ -111,15 +110,19 @@ export default function CreatureForgeScreen({ gameState, onUpdateGameState, onBa
       {tab === 'creatures' && !editingCreature && (
         <div className="space-y-4">
           {/* Existing custom creatures */}
-          {customCreatures.map((creature, i) => {
-            const colors = TYPE_COLORS[creature.type] || { accent: '#718096', light: '#a0aec0', dark: '#4a5568' }
+          {customCreatures.map((creature) => {
+            const colors = TYPE_COLORS[creature.type] || customTypes.find(t => t.id === creature.type)?.colors || { accent: '#718096', light: '#a0aec0', dark: '#4a5568' }
             return (
               <div key={creature.id} className="rounded-xl border p-4 flex items-center justify-between"
                 style={{ borderColor: colors.dark + '60', background: `linear-gradient(135deg, ${colors.dark}15, transparent)` }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: colors.dark + '60' }}>
-                    <div className="w-6 h-6 rounded-full" style={{ background: colors.accent }} />
-                  </div>
+                  <CreatureSprite
+                    creatureId={creature.id}
+                    spriteId={creature.spriteId}
+                    creatureType={creature.type}
+                    creatureName={creature.name}
+                    size={56}
+                  />
                   <div>
                     <p className="font-ui font-bold" style={{ color: colors.light }}>{creature.name}</p>
                     <p className="font-ui text-xs text-slate-500">{creature.type.toUpperCase()} {creature.archetype.replace('_', ' ').toUpperCase()}</p>
@@ -127,11 +130,11 @@ export default function CreatureForgeScreen({ gameState, onUpdateGameState, onBa
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setEditingCreature(creature.id)}
-                    className="px-3 py-1 rounded-lg text-xs font-ui font-bold uppercase bg-slate-700 hover:bg-slate-600 text-slate-300 transition-all cursor-pointer">
+                    className="px-4 py-2 rounded-lg text-sm font-ui font-bold uppercase bg-slate-700 hover:bg-slate-600 text-slate-200 transition-all cursor-pointer">
                     Edit
                   </button>
                   <button onClick={() => handleDeleteCreature(creature.id)}
-                    className="px-3 py-1 rounded-lg text-xs font-ui font-bold uppercase bg-red-900/30 hover:bg-red-800/50 text-red-400 transition-all cursor-pointer">
+                    className="px-4 py-2 rounded-lg text-sm font-ui font-bold uppercase bg-red-900/30 hover:bg-red-800/50 text-red-300 transition-all cursor-pointer">
                     Delete
                   </button>
                 </div>
