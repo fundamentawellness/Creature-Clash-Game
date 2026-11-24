@@ -735,6 +735,14 @@ export class BattleScene extends Phaser.Scene {
           setTimeout(() => this.showForceSwitchPanel(onDone), 300)
           break // onDone will be called by the panel's selection handler
         }
+        if (isPlayer && event.data.newIndex != null) {
+          this.playerActiveIdx = event.data.newIndex
+          this.addLogLine(`Go, ${event.data.toName}!`)
+          this.drawPlayerCreature()
+          this.updateInfoPanels()
+          delay(300)
+          break
+        }
         if (!isPlayer && event.data.newIndex !== null) {
           this.aiActiveIdx = event.data.newIndex
           this.addLogLine(`Enemy sends out ${event.data.toName}!`)

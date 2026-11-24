@@ -2,6 +2,17 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import Phaser from 'phaser'
 import { BattleScene } from '../game/scenes/BattleScene.js'
 import { createBattleCreature, executeTurn } from '../systems/battleEngine.js'
+import { STATUSES } from '../data/statuses.js'
+
+function applyRemote(team, rows) {
+  (rows || []).forEach((row, index) => {
+    const creature = team?.[index]
+    if (!creature || !row) return
+    creature.currentHp = row.currentHp
+    creature.fainted = !!row.fainted
+    creature.status = row.status ? { id: row.status, name: STATUSES[row.status]?.name || row.status } : null
+  })
+}
 import { getAllCreatures, getAllCreatureList, getFullTypeChart, getFullTypeColors, getTypeNames } from '../utils/customData.js'
 import { buildRivalTeam } from '../data/campaign.js'
 import { movesKnownAtLevel } from '../systems/progression.js'
@@ -10,7 +21,7 @@ import BattleControls from './BattleControls.jsx'
 // Shared data store — scene reads on init
 let _pendingBattleData = null
 
-export default function BattleContainer({ gameState, selectedTeam, battleInfo, onBattleEnd, onUpdateGameState, onMarkSeen }) {
+export default function BattleContainer({ gameState, selectedTeam, battleInfo, onBattleEnd, onUpdateGameState, onMarkSeen, link }) {
   const containerRef = useRef(null)
   const gameRef = useRef(null)
   const sceneRef = useRef(null)
@@ -25,6 +36,8 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
   const bagRef = useRef({ ...(gameState?.bag || {}) })
   const onBagRef = useRef(onUpdateGameState)
   const onSeenRef = useRef(onMarkSeen)
+  const linkRef = useRef(link)
+  useEffect(() => { linkRef.current = link }, [link])
   const [controls, setControls] = useState(null)
   const [logLines, setLogLines] = useState([])
   const [bag, setBag] = useState(() => ({ ...(gameState?.bag || {}) }))
@@ -35,10 +48,17 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
 
   const handlePlayerAction = useCallback((action) => {
     const scene = sceneRef.current
-    if (!scene || scene.battleOver || scene.isAnimating) return
+    if (!scene || scene.battleOver || scene.isAnimating || linkRef.current?.locked) return
 
     scene.isAnimating = true
     scene.hideMoveButtons()
+
+    if (linkRef.current) {
+      scene.isAnimating = true
+      scene.hideMoveButtons()
+      linkRef.current.sendAction(action)
+      return
+    }
 
     const turnAction = action.type === 'item' || action.type === 'catch' ? { ...action, bag: bagRef.current } : action
     const result = executeTurn(
@@ -81,17 +101,27 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
     const allCreatureList = getAllCreatureList(gameState)
 
     // Build player team from save state
-    const playerTeam = selectedTeam.map(id => {
+    const playerTeam = (battleInfo.playerSpecs || selectedTeam.map(id => {
       const progress = gameState.creatureProgress[id]
-      return createBattleCreature(progress ? { ...progress, id } : {
+      return progress ? { ...progress, id } : {
         id, level: 1, wins: 0,
         currentMoves: allCreatures[id]?.movePool?.slice(0, 2) || [],
+      }
+    })).map(spec => {
+      return createBattleCreature(spec.id ? spec : {
+        id: spec, level: 1, wins: 0,
+        currentMoves: allCreatures[spec]?.movePool?.slice(0, 2) || [],
       }, allCreatures)
     }).filter(Boolean)
 
     // Build AI team based on battleInfo
     let aiTeam
-    if (battleInfo.aiTeamSpec) {
+    if (battleInfo.online) {
+      aiTeam = battleInfo.aiTeamSpec.map(spec => createBattleCreature({
+        id: spec.id, level: spec.level, wins: 0,
+        currentMoves: spec.currentMoves, heldItem: spec.heldItem,
+      }, allCreatures)).filter(Boolean)
+    } else if (battleInfo.aiTeamSpec) {
       // Predefined team (trainers/leaders)
       aiTeam = battleInfo.aiTeamSpec.map(spec => {
         const template = allCreatures[spec.id]
@@ -128,6 +158,21 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
     const aiItems = []
     if (battleInfo.type === 'leader' || battleInfo.type === 'rival') aiItems.push('super_potion')
     else if (battleInfo.zoneId === 'zone3' || battleInfo.zoneId === 'zone4') aiItems.push('potion')
+    if (battleInfo.syncYou) {
+      battleInfo.syncYou.forEach((row, index) => {
+        if (!playerTeam[index] || !row) return
+        playerTeam[index].currentHp = row.currentHp
+        playerTeam[index].fainted = !!row.fainted
+      })
+    }
+    if (battleInfo.syncFoe) {
+      battleInfo.syncFoe.forEach((row, index) => {
+        if (!aiTeam[index] || !row) return
+        aiTeam[index].currentHp = row.currentHp
+        aiTeam[index].fainted = !!row.fainted
+      })
+    }
+
     onSeenRef.current?.([...playerTeam, ...aiTeam].map(creature => creature.id))
 
     aiConfigRef.current = {
@@ -181,6 +226,18 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
         scene._onForceSwitch = (newIdx) => {
           playerActiveIdxRef.current = newIdx
         }
+        linkRef.current?.onReady?.({
+          play(msg) {
+            applyRemote(playerTeamRef.current, msg.you)
+            applyRemote(aiTeamRef.current, msg.foe)
+            playerActiveIdxRef.current = msg.result.playerActiveIdx
+            aiActiveIdxRef.current = msg.result.aiActiveIdx
+            scene.playerActiveIdx = msg.result.playerActiveIdx
+            scene.aiActiveIdx = msg.result.aiActiveIdx
+            scene.isAnimating = true
+            scene.processTurnResult(msg.result)
+          },
+        })
         clearInterval(poll)
       }
     }, 50)
@@ -225,6 +282,7 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
           typeNames={typeNames}
           bag={bag}
           wild={!!battleInfo?.wild}
+          hideItems={!!link}
           onAttack={(moveId) => handlePlayerAction({ type: 'attack', moveId })}
           onCatch={(itemId) => handlePlayerAction({ type: 'catch', itemId })}
           onUseItem={(itemId, targetIndex) => handlePlayerAction({ type: 'item', itemId, targetIndex })}
