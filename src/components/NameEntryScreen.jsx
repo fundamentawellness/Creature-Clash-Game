@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
-export default function NameEntryScreen({ onConfirm, onBack }) {
-  const [playerName, setPlayerName] = useState('')
+export default function NameEntryScreen({ onConfirm, onBack, initialPlayerName = '' }) {
+  const [playerName, setPlayerName] = useState(initialPlayerName.slice(0, 12))
   const [rivalName, setRivalName] = useState('')
 
   const isValid = playerName.trim().length >= 1 && rivalName.trim().length >= 1

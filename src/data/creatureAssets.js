@@ -49,3 +49,29 @@ export function getIdleSprite(creatureId) {
 export function getAttackSprite(creatureId) {
   return CREATURE_SPRITES[creatureId]?.attack || null
 }
+
+/**
+ * Art-bank sprites (the extra pictures that are not tied to an official creature).
+ * Each entry is { id, name, idle, attack }.
+ */
+export function getBankSprites() {
+  const entries = []
+  for (const [path, url] of Object.entries(idleModules)) {
+    if (!path.includes('creature-forge-bank-sprites')) continue
+    const filename = path.split('/').pop()
+    const id = filename.replace('-idle.png', '')
+    entries.push({
+      id,
+      name: id.charAt(0).toUpperCase() + id.slice(1),
+      idle: url,
+      attack: CREATURE_SPRITES[id]?.attack || null,
+    })
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name))
+  return entries
+}
+
+/** Picture id used in battle and menus. Bank art wins over the creature id. */
+export function resolveSpriteId(creature) {
+  return creature?.spriteId || creature?.id || null
+}

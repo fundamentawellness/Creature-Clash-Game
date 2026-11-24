@@ -13,7 +13,6 @@ export default function MoveTutorScreen({ gameState, onUpdateGameState, onBack }
   const unlockedIds = gameState.unlockedCreatureIds || []
 
   const selectedProgress = selectedCreature ? gameState.creatureProgress?.[selectedCreature] : null
-  const selectedTemplate = selectedCreature ? allCreatures[selectedCreature] : null
 
   const currentMoves = selectedProgress?.currentMoves || []
   const learnedMoves = selectedProgress?.learnedMoves || []
@@ -48,9 +47,9 @@ export default function MoveTutorScreen({ gameState, onUpdateGameState, onBack }
 
       <p className="font-ui text-sm text-slate-500 text-center mb-4">Select a creature to re-learn forgotten moves</p>
 
-      <div className="flex gap-4 flex-1 min-h-0">
+      <div className="flex flex-col sm:flex-row gap-4 flex-1 min-h-0">
         {/* Creature list */}
-        <div className="w-48 overflow-y-auto space-y-2 shrink-0">
+        <div className="w-full sm:w-56 max-h-56 sm:max-h-none overflow-y-auto space-y-2 shrink-0">
           {unlockedIds.map(id => {
             const template = allCreatures[id]
             if (!template) return null
@@ -86,7 +85,7 @@ export default function MoveTutorScreen({ gameState, onUpdateGameState, onBack }
               {/* Current moves */}
               <div>
                 <h4 className="font-ui text-xs text-slate-500 uppercase font-bold tracking-wider mb-2">Current Moves</h4>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {currentMoves.map((moveId, idx) => {
                     const move = MOVES[moveId]
                     if (!move) return null
@@ -113,9 +112,9 @@ export default function MoveTutorScreen({ gameState, onUpdateGameState, onBack }
               {forgottenMoves.length > 0 && (
                 <div>
                   <h4 className="font-ui text-xs text-slate-500 uppercase font-bold tracking-wider mb-2">
-                    Forgotten Moves {swapFrom !== null && <span className="text-cyan-400">(click to re-learn)</span>}
+                    Forgotten Moves {swapFrom !== null && <span className="text-cyan-400">(tap to re-learn)</span>}
                   </h4>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {forgottenMoves.map(moveId => {
                       const move = MOVES[moveId]
                       if (!move) return null

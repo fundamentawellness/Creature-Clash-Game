@@ -1,18 +1,43 @@
 @import "tailwindcss";
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background: #0a0e1a;
   color: #e2e8f0;
   font-family: 'Rajdhani', system-ui, -apple-system, sans-serif;
   min-height: 100vh;
-  overflow-x: hidden;
+  min-height: 100dvh;
+  overflow-x: clip;
 }
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+button,
+select,
+input:not([type="range"]):not([type="checkbox"]):not([type="file"]) {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid #f6ad55;
+  outline-offset: 2px;
 }
 
 .font-game {

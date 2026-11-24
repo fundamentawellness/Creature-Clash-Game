@@ -12,7 +12,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
   const [processedResults, setProcessedResults] = useState(null)
   const [moveLearnQueue, setMoveLearnQueue] = useState([])
   const [currentLearn, setCurrentLearn] = useState(null)
-  const [unlockedCreature, setUnlockedCreature] = useState(null)
+  const [unlockedCreature] = useState(null)
   const [badgeEarned, setBadgeEarned] = useState(null)
   const [processed, setProcessed] = useState(false)
 
@@ -21,6 +21,8 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
 
   useEffect(() => {
     if (processed || !gameState) return
+    // Apply the battle result once: levels, badges, and the next-battle state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProcessed(true)
 
     if (!won) {
@@ -335,8 +337,11 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
       )}
 
       {/* Action buttons */}
-      <div className="flex flex-col sm:flex-row gap-3 mt-8 slide-up" style={{ animationDelay: '0.4s' }}>
-        {won && battleInfo?.type === 'trainer' && !battleInfo?.replay && (
+      <div className="flex flex-col sm:flex-row gap-3 mt-8 w-full max-w-md slide-up" style={{ animationDelay: '0.4s' }}>
+        {won && (
+          (battleInfo?.replay && battleInfo.type !== 'leader') ||
+          (battleInfo?.type === 'trainer' && !battleInfo?.replay)
+        ) && (
           <button onClick={onBattleAgain}
             className="px-8 py-3 rounded-xl font-ui font-bold text-base uppercase tracking-wider
               bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400

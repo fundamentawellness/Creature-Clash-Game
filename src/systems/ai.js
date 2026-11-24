@@ -19,9 +19,9 @@ function resolveConfig(aiConfig) {
 /**
  * Estimate damage a move would deal (uses average random factor).
  */
-function estimateDamage(attacker, move, defender) {
+function estimateDamage(attacker, move, defender, typeChart) {
   const fixedRng = () => 0.5
-  const result = calculateDamage(attacker, move, defender, fixedRng)
+  const result = calculateDamage(attacker, move, defender, fixedRng, typeChart)
   return result.damage
 }
 
@@ -68,7 +68,7 @@ function scoreStatusMove(move, creature, opponent) {
 /**
  * Pick the optimal move (highest estimated damage or best status value).
  */
-function pickOptimalMove(aiCreature, playerCreature) {
+function pickOptimalMove(aiCreature, playerCreature, typeChart) {
   const moves = aiCreature.currentMoves.map(id => MOVES[id]).filter(Boolean)
   if (moves.length === 0) return null
 
@@ -80,7 +80,7 @@ function pickOptimalMove(aiCreature, playerCreature) {
     if (move.category === 'status') {
       score = scoreStatusMove(move, aiCreature, playerCreature)
     } else {
-      score = estimateDamage(aiCreature, move, playerCreature)
+      score = estimateDamage(aiCreature, move, playerCreature, typeChart)
     }
     if (score > bestScore) {
       bestScore = score
@@ -108,10 +108,10 @@ function pickRandomMove(aiCreature) {
  * @param {object|string} aiConfig — { optimalChance } or legacy difficulty string
  * @returns {object} selected move from MOVES
  */
-export function aiPickMove(aiCreature, playerCreature, aiConfig) {
+export function aiPickMove(aiCreature, playerCreature, aiConfig, typeChart) {
   const config = resolveConfig(aiConfig)
   if (Math.random() < config.optimalChance) {
-    return pickOptimalMove(aiCreature, playerCreature)
+    return pickOptimalMove(aiCreature, playerCreature, typeChart)
   }
   return pickRandomMove(aiCreature)
 }
@@ -125,7 +125,7 @@ export function aiPickMove(aiCreature, playerCreature, aiConfig) {
  * @param {object|string} aiConfig — { switchBehavior } or legacy difficulty string
  * @returns {number|null} index to switch to, or null to stay
  */
-export function aiShouldSwitch(aiTeam, activeIdx, playerCreature, aiConfig) {
+export function aiShouldSwitch(aiTeam, activeIdx, playerCreature, aiConfig, typeChart) {
   const config = resolveConfig(aiConfig)
   const behavior = config.switchBehavior || 'never'
 
@@ -147,18 +147,18 @@ export function aiShouldSwitch(aiTeam, activeIdx, playerCreature, aiConfig) {
   if (behavior === 'disadvantage') {
     // Switch only at severe type disadvantage
     const severeDisadvantage = incomingMoves.some(m => {
-      const eff = getEffectiveness(m.type, active.type)
+      const eff = getEffectiveness(m.type, active.type, typeChart)
       const stab = m.type === playerCreature.type ? 1.5 : 1
       return eff * stab >= 3
     })
 
     if (!severeDisadvantage) return null
-    return findBestSwitch(alternatives, incomingMoves, playerCreature)
+    return findBestSwitch(alternatives, incomingMoves, playerCreature, typeChart)
   }
 
   if (behavior === 'strategic') {
     const worstIncoming = incomingMoves.reduce((max, m) => {
-      const eff = getEffectiveness(m.type, active.type)
+      const eff = getEffectiveness(m.type, active.type, typeChart)
       const stab = m.type === playerCreature.type ? 1.5 : 1
       return Math.max(max, eff * stab)
     }, 0)
@@ -167,13 +167,13 @@ export function aiShouldSwitch(aiTeam, activeIdx, playerCreature, aiConfig) {
     const shouldConsiderSwitch = worstIncoming >= 3 || (worstIncoming >= 2 && hpPercent < 0.4)
     if (!shouldConsiderSwitch) return null
 
-    return findBestSwitch(alternatives, incomingMoves, playerCreature)
+    return findBestSwitch(alternatives, incomingMoves, playerCreature, typeChart)
   }
 
   if (behavior === 'proactive') {
     // All strategic logic plus: proactively switch when a much better matchup exists
     const worstIncoming = incomingMoves.reduce((max, m) => {
-      const eff = getEffectiveness(m.type, active.type)
+      const eff = getEffectiveness(m.type, active.type, typeChart)
       const stab = m.type === playerCreature.type ? 1.5 : 1
       return Math.max(max, eff * stab)
     }, 0)
@@ -181,13 +181,13 @@ export function aiShouldSwitch(aiTeam, activeIdx, playerCreature, aiConfig) {
     const hpPercent = active.currentHp / active.currentStats.hp
 
     // Score current active
-    const currentScore = scoreMatchup(active, incomingMoves, playerCreature)
+    const currentScore = scoreMatchup(active, incomingMoves, playerCreature, typeChart)
 
     // Check if any alternative is significantly better
     let bestAlt = null
     let bestAltScore = -Infinity
     for (const alt of alternatives) {
-      const score = scoreMatchup(alt.creature, incomingMoves, playerCreature)
+      const score = scoreMatchup(alt.creature, incomingMoves, playerCreature, typeChart)
       if (score > bestAltScore) {
         bestAltScore = score
         bestAlt = alt.index
@@ -204,21 +204,21 @@ export function aiShouldSwitch(aiTeam, activeIdx, playerCreature, aiConfig) {
   return null
 }
 
-function scoreMatchup(creature, incomingMoves, opponent) {
+function scoreMatchup(creature, incomingMoves, opponent, typeChart) {
   let score = 0
   for (const m of incomingMoves) {
-    score -= getEffectiveness(m.type, creature.type) * 3
+    score -= getEffectiveness(m.type, creature.type, typeChart) * 3
   }
-  score += getEffectiveness(creature.type, opponent.type) * 4
+  score += getEffectiveness(creature.type, opponent.type, typeChart) * 4
   score += (creature.currentHp / creature.currentStats.hp) * 2
   return score
 }
 
-function findBestSwitch(alternatives, incomingMoves, playerCreature) {
+function findBestSwitch(alternatives, incomingMoves, playerCreature, typeChart) {
   let bestAlt = null
   let bestScore = -Infinity
   for (const alt of alternatives) {
-    const score = scoreMatchup(alt.creature, incomingMoves, playerCreature)
+    const score = scoreMatchup(alt.creature, incomingMoves, playerCreature, typeChart)
     if (score > bestScore) {
       bestScore = score
       bestAlt = alt.index

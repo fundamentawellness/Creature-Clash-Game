@@ -187,6 +187,65 @@ export function canReplayGym(campaign, gymId) {
 }
 
 /**
+ * Build the battle payload for one step of a gym (a trainer or the leader).
+ * Replay fights use the same teams but must not advance the campaign.
+ */
+export function buildGymBattleInfo(gym, zone, step, { replay = false } = {}) {
+  if (!gym || !zone || !step) return null
+
+  if (step.type === 'trainer') {
+    const trainer = gym.trainers[step.trainerIndex]
+    if (!trainer) return null
+    return {
+      type: 'trainer',
+      gymId: gym.id,
+      trainerIndex: step.trainerIndex,
+      zoneId: zone.id,
+      aiConfig: zone.aiConfig,
+      aiTeamSpec: trainer.creatures,
+      aiTeamSize: trainer.teamSize || 3,
+      trainerName: trainer.title,
+      replay,
+    }
+  }
+
+  return {
+    type: 'leader',
+    gymId: gym.id,
+    trainerIndex: -1,
+    zoneId: zone.id,
+    aiConfig: zone.leaderAiConfig,
+    aiTeamSpec: gym.leader.creatures,
+    aiTeamSize: gym.leader.teamSize,
+    leaderName: gym.leader.name,
+    preBattleDialogue: gym.leader.preBattleDialogue,
+    postDefeatDialogue: gym.leader.postDefeatDialogue,
+    badgeName: gym.badge?.name,
+    badgeIcon: gym.badge?.icon,
+    replay,
+  }
+}
+
+/**
+ * The next fight in a gym replay, or null when the leader has already been fought.
+ * Order is every trainer, then the leader — the same path as a first clear.
+ */
+export function getNextReplayBattle(battleInfo) {
+  if (!battleInfo?.replay || !battleInfo.gymId) return null
+  if (battleInfo.type === 'leader') return null
+
+  const gym = getGymById(battleInfo.gymId)
+  const zone = getZoneById(battleInfo.zoneId)
+  if (!gym || !zone) return null
+
+  const nextIndex = (battleInfo.trainerIndex ?? 0) + 1
+  if (nextIndex < gym.trainers.length) {
+    return buildGymBattleInfo(gym, zone, { type: 'trainer', trainerIndex: nextIndex }, { replay: true })
+  }
+  return buildGymBattleInfo(gym, zone, { type: 'leader' }, { replay: true })
+}
+
+/**
  * Get gym trainer/leader progress summary for UI.
  */
 export function getGymProgress(campaign, gymId) {

@@ -494,7 +494,6 @@ export function buildRivalTeam(playerTypeCounts, rivalLevel, rivalTeamSize, allC
 
   const team = []
   const usedIds = new Set()
-  const archetypes = ['speedster', 'tank', 'glass_cannon', 'bruiser']
 
   // Try to fill with counter creatures first, then others
   const pool = [...counterCreatures, ...otherCreatures]
