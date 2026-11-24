@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ZONES } from '../data/campaign.js'
+import { ZONES, ALL_GYMS } from '../data/campaign.js'
 import { TYPE_COLORS } from '../data/types.js'
 import { isGymUnlocked, isRivalUnlocked, getNextGymBattle, getGymProgress, getBadgeCount, buildGymBattleInfo } from '../systems/campaignManager.js'
 
@@ -61,7 +61,7 @@ export default function CampaignMapScreen({ gameState, onSelectBattle, onBadges,
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-ui text-sm text-amber-400">🏅 {badgeCount}/16</span>
+          <span className="font-ui text-sm text-amber-400">🏅 {badgeCount}/{ALL_GYMS.length}</span>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { ISLANDS } from '../data/islands.js'
 import { canReachIsland, travelHint, boatCount, hasFerryCreature } from '../systems/world.js'
 import { getBadgeCount } from '../systems/campaignManager.js'
+import { ALL_GYMS } from '../data/campaign.js'
 
 export default function IslandMapScreen({ gameState, onOpenIsland, onBook, onBag, onTeam, onBadges, onMenu }) {
   const badges = getBadgeCount(gameState?.campaign || {})
@@ -12,7 +13,7 @@ export default function IslandMapScreen({ gameState, onOpenIsland, onBook, onBag
         <button type="button" onClick={onMenu} className="font-ui font-bold text-slate-300 uppercase text-sm px-2 cursor-pointer">Menu</button>
         <div className="text-center">
           <h2 className="font-game text-xl sm:text-2xl font-bold text-slate-100">ISLANDS</h2>
-          <p className="font-ui text-sm text-slate-400">{gameState?.campaign?.playerName} · {coins} coins · {badges}/16 badges</p>
+          <p className="font-ui text-sm text-slate-400">{gameState?.campaign?.playerName} · {coins} coins · {badges}/{ALL_GYMS.length} badges</p>
         </div>
         <div className="w-12" />
       </div>

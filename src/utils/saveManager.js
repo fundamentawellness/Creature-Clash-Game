@@ -7,7 +7,7 @@ import { evolveIfReady, replaceCreatureId } from '../systems/evolution.js'
 
 const LEGACY_SAVE_KEY = 'battle-arena-save'
 const PROFILE_KEY = 'battle-arena-profiles'
-const CURRENT_VERSION = 4
+const CURRENT_VERSION = 5
 const PROFILE_VERSION = 1
 
 export const SLOT_COUNT = 4
@@ -75,6 +75,7 @@ export function getDefaultSave() {
     caughtIds: [...STARTER_CREATURE_IDS],
     seenIds: [...STARTER_CREATURE_IDS],
     currentIsland: 'greenridge',
+    story: { seen: [], defeated: [], elitesBeaten: [], champion: false, rematch: false },
   }
 }
 
@@ -222,6 +223,17 @@ function migrateSave(data) {
     migrated.currentIsland = migrated.currentIsland || 'greenridge'
     if (!migrated.bag) migrated.bag = emptyBag()
     else if (!migrated.bag.lure_orb) migrated.bag = { ...migrated.bag, lure_orb: 5 }
+  }
+
+  if (!migrated.version || migrated.version < 5) {
+    const story = migrated.story || {}
+    migrated.story = {
+      seen: story.seen || [],
+      defeated: story.defeated || [],
+      elitesBeaten: story.elitesBeaten || [],
+      champion: !!story.champion,
+      rematch: !!story.rematch,
+    }
   }
 
   // Ensure all expected fields exist with defaults

@@ -36,7 +36,7 @@ const withSkiff = {
 assert.equal(canReachIsland(withSkiff, 1), true)
 assert.equal(canReachIsland({ ...fresh, campaign: { ...fresh.campaign, completedGyms: ['z1g1', 'z2g1'] } }, 2), true)
 assert.equal(canReachIsland(withSkiff, 4), false)
-assert.equal(ISLANDS[4].charted, false)
+assert.equal(ISLANDS[4].charted, true)
 
 const weak = catchChance({ hpPercent: 0.05, status: 'sleep', itemId: 'sturdy_orb' })
 const healthy = catchChance({ hpPercent: 1, status: null, itemId: 'lure_orb' })
@@ -86,7 +86,7 @@ const profiles = {
 }
 writeProfiles(profiles)
 const loaded = loadProfiles()
-assert.equal(loaded.slots[0].save.version, 4)
+assert.equal(loaded.slots[0].save.version, 5)
 assert.ok(loaded.slots[0].save.caughtIds.includes('solmane'))
 assert.ok(loaded.slots[0].save.seenIds.includes('emberpaw'))
 assert.ok(loaded.slots[0].save.bag.lure_orb >= 5)

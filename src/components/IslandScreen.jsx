@@ -4,12 +4,18 @@ import { islandById, SHOP } from '../data/islands.js'
 import { ITEMS } from '../data/items.js'
 import { rollWild } from '../systems/world.js'
 import { isGymUnlocked, isRivalUnlocked, getNextGymBattle, getGymProgress, buildGymBattleInfo } from '../systems/campaignManager.js'
+import { crewForIsland, crewBattleInfo, nextElite, eliteBattleInfo, championReady, championBattleInfo } from '../systems/story.js'
+import { LEGENDS } from '../data/story.js'
 
 export default function IslandScreen({ islandId, gameState, onWild, onSelectBattle, onBack, onShopBuy }) {
   const island = islandById(islandId)
   const zone = island.zoneId ? getZoneById(island.zoneId) : null
   const campaign = gameState?.campaign || {}
   const [note, setNote] = useState('')
+  const crew = crewForIsland(gameState, island.id)
+  const climbOpen = !!gameState?.story?.defeated?.includes('scoop') && !!gameState?.campaign?.completedRivals?.includes('rival6')
+  const elite = island.champion && climbOpen ? nextElite(gameState) : null
+  const readyForChampion = island.champion && championReady(gameState)
 
   const fightGym = (gym) => {
     const complete = campaign.completedGyms?.includes(gym.id)
@@ -71,6 +77,72 @@ export default function IslandScreen({ islandId, gameState, onWild, onSelectBatt
       {note && <p className="font-ui text-center text-amber-300 mb-3">{note}</p>}
 
       <div className="space-y-4 overflow-y-auto pb-6">
+        {crew.length > 0 && (
+          <section>
+            <h3 className="font-ui text-sm font-bold uppercase tracking-wider text-slate-500 mb-2">Scoop Squad</h3>
+            {crew.map(member => (
+              <button
+                key={member.id}
+                type="button"
+                onClick={() => onSelectBattle(crewBattleInfo(member))}
+                className="w-full min-h-16 mb-2 rounded-2xl border border-amber-700/50 bg-amber-950/40 px-4 py-3 text-left cursor-pointer"
+              >
+                <p className="font-ui text-lg font-bold text-amber-100">Battle {member.name}</p>
+                <p className="font-ui text-sm text-amber-200/80">{member.title}. They are digging where they should not.</p>
+              </button>
+            ))}
+          </section>
+        )}
+
+        {island.champion && (
+          <section>
+            <h3 className="font-ui text-sm font-bold uppercase tracking-wider text-slate-500 mb-2">Champion climb</h3>
+            {elite && (
+              <button
+                type="button"
+                onClick={() => onSelectBattle(eliteBattleInfo(elite))}
+                className="w-full min-h-16 mb-2 rounded-2xl border border-yellow-600/50 bg-yellow-950/30 px-4 py-3 text-left cursor-pointer"
+              >
+                <p className="font-ui text-lg font-bold text-yellow-100">{elite.name}</p>
+                <p className="font-ui text-sm text-yellow-200/70">{elite.title}. Win to climb higher.</p>
+              </button>
+            )}
+            {readyForChampion && (
+              <button
+                type="button"
+                onClick={() => onSelectBattle(championBattleInfo(false))}
+                className="w-full min-h-16 mb-2 rounded-2xl border border-yellow-400/60 bg-yellow-900/40 px-4 py-3 text-left cursor-pointer"
+              >
+                <p className="font-ui text-lg font-bold text-yellow-50">Champion Lumen</p>
+                <p className="font-ui text-sm text-yellow-100/80">The last battle of the chain.</p>
+              </button>
+            )}
+            {gameState?.story?.champion && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onSelectBattle(championBattleInfo(true))}
+                  className="w-full min-h-16 mb-2 rounded-2xl border border-slate-600 bg-slate-900 px-4 py-3 text-left cursor-pointer"
+                >
+                  <p className="font-ui text-lg font-bold text-slate-100">Rematch Champion Lumen</p>
+                  <p className="font-ui text-sm text-slate-400">A sharper fight, for after the story.</p>
+                </button>
+                <div className="rounded-2xl border border-yellow-900/40 bg-slate-900/80 px-4 py-3">
+                  <p className="font-ui font-bold text-yellow-100 mb-2">Three empty pedestals</p>
+                  {LEGENDS.map(legend => (
+                    <p key={legend.id} className="font-ui text-sm text-slate-300 mb-2">
+                      <span className="text-yellow-200">{legend.name}.</span> {legend.hint}
+                    </p>
+                  ))}
+                </div>
+              </>
+            )}
+            {!elite && !readyForChampion && !gameState?.story?.champion && (
+              <p className="font-ui text-sm text-slate-400">Beat Captain Scoop and the Ashwake rival. Then the wardens will meet you.</p>
+            )}
+          </section>
+        )}
+
         <section>
           <h3 className="font-ui text-sm font-bold uppercase tracking-wider text-slate-500 mb-2">Wild areas</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
