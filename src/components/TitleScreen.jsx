@@ -11,7 +11,7 @@ const TITLE_CREATURES = {
   rock: 'bouldar', ground: 'dustail', poison: 'venomaw',
 }
 
-export default function TitleScreen({ hasSave, forgeUnlocked, profileName, profileColor, onNewGame, onContinue, onImport, onForge, onSwitchPlayer }) {
+export default function TitleScreen({ hasSave, forgeUnlocked, profileName, profileColor, onNewGame, onContinue, onImport, onForge, onSwitchPlayer, onLink }) {
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState(null)
   const [confirmNew, setConfirmNew] = useState(false)
@@ -103,6 +103,18 @@ export default function TitleScreen({ hasSave, forgeUnlocked, profileName, profi
 
       {/* Menu buttons */}
       <div className="relative z-10 flex flex-col gap-3 mt-8 sm:mt-12 w-full max-w-xs slide-up" style={{ animationDelay: '0.3s' }}>
+        {hasSave && onLink && (
+          <button
+            onClick={onLink}
+            className="w-full py-4 px-6 rounded-xl font-ui font-bold text-xl uppercase tracking-wider
+              bg-gradient-to-r from-cyan-700 to-cyan-600 hover:from-cyan-600 hover:to-cyan-500
+              border border-cyan-400/30 text-white
+              transition-all cursor-pointer"
+          >
+            Friend battle
+          </button>
+        )}
+
         {hasSave && (
           <button
             onClick={onContinue}

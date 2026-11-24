@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Component } from 'react'
+import { useState, useEffect, useCallback, useRef, Component } from 'react'
 import { getDefaultSave, loadProfiles, writeProfiles } from './utils/saveManager.js'
 import TitleScreen from './components/TitleScreen.jsx'
 import TeamSelectScreen from './components/TeamSelectScreen.jsx'
@@ -22,6 +22,7 @@ import CollectionBookScreen from './components/CollectionBookScreen.jsx'
 import { markSeen, buyItem } from './systems/world.js'
 import { pendingScene, markSceneSeen } from './systems/story.js'
 import StoryScene from './components/StoryScene.jsx'
+import OnlineMatch from './components/OnlineMatch.jsx'
 import { getNextReplayBattle } from './systems/campaignManager.js'
 
 // Error boundary to prevent crashes from losing save data
@@ -74,7 +75,8 @@ function App() {
   const [dialogue, setDialogue] = useState(null) // { speakerName, text, onDismiss }
   const [creaturePick, setCreaturePick] = useState(null) // { creatureIds, onPick }
   const [rewardSplash, setRewardSplash] = useState(null)
-  const [currentIsland, setCurrentIsland] = useState('greenridge') // { title, description }
+  const [currentIsland, setCurrentIsland] = useState('greenridge')
+  const afterTeam = useRef(null) // { title, description }
 
   // Write the active player's latest game into their slot. This only touches
   // storage; React state is updated by the handlers that change the game.
@@ -169,6 +171,10 @@ function App() {
     // If names not set yet (new game), go to name entry
     if (!gameState?.campaign?.playerName) {
       transitionTo('nameEntry')
+    } else if (afterTeam.current) {
+      const next = afterTeam.current
+      afterTeam.current = null
+      transitionTo(next)
     } else {
       transitionTo('world')
     }
@@ -380,6 +386,15 @@ function App() {
             onImport={handleImportComplete}
             onForge={() => transitionTo('forge')}
             onSwitchPlayer={handleSwitchPlayer}
+            onLink={() => transitionTo('link')}
+          />
+        )
+      case 'link':
+        return (
+          <OnlineMatch
+            gameState={gameState}
+            onExit={() => transitionTo('title')}
+            onChangeTeam={() => { afterTeam.current = 'link'; transitionTo('teamSelect') }}
           />
         )
       case 'teamSelect':

@@ -12,3 +12,17 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
+  # Private friend battles. Free instances sleep, so the first connection can take a minute.
+  - type: web
+    name: battle-arena-rooms
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ALLOWED_ORIGINS
+        value: https://battle-arena.onrender.com

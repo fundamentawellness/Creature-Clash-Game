@@ -127,18 +127,15 @@ Scenes live in `src/data/story.js`. A portrait is a simple face, not a new paint
 
 ### Phase 5 — Battles between devices
 
-**Goal.** Two kids, two devices, one private room. They battle each other without the game being public on the internet.
+**This phase is in the game.** From the title screen, Friend battle opens a private room. One kid creates a short code such as TIDE4. The other types it in. They fight with the teams already on their own devices. There is no public list, no accounts, and no chat.
 
-**What you can play.** One kid creates a short room code. The other types it in. They fight with the teams they already built. Family and friends only — no matchmaking, no public ladder.
+**Fair fights.** The kid who creates the room can turn on "level 50" so both teams fight at the same level even if one has played more of the story. The fight does not change either save.
 
-**Features.**
+**If someone drops.** The battle waits about 45 seconds. Coming back with the same tab rejoins the room. If they do not, the friend who stayed is told the battle is over. A turn that sits for a minute uses the first move so a frozen tablet cannot stall the fight forever.
 
-- A room code that is easy to read aloud.
-- Both players see the same fight and pick moves on their own screen.
-- The fight uses the same rules as the single-player battle.
-- A small always-on service to pass moves back and forth. The game the kids open can stay a static site. The room host would be a second, small web service. That service is new; this phase is the one that adds it. The current deploy file only describes the static site, and it should gain a second service when this phase is built, not before.
+**The room server.** `server/index.js` is a small Node service. It runs the same turn function as the story, once, and sends each screen the result. The static site reads `VITE_BATTLE_SERVER_URL`, or `https://battle-arena-rooms.onrender.com` if that variable is not set. The server only accepts connections from the static site's origin (and local dev). Free Render instances sleep. The game says "Waking up the arena" while the first connection waits. The island story still works with no server at all.
 
-**Notes.** The turn runner is already a plain function: given both choices, it returns what happened. That is a good fit for "both phones send a choice, the server (or one phone) runs the turn, both phones play the result." Saves can stay on each device. The server only needs the room and the current fight, not a full account system. Keep the room private. Do not add accounts or a public directory of players for a family game.
+**One-time setup.** Sync the blueprint so Render creates the `battle-arena-rooms` service on the free plan. If the static site's real address is not `https://battle-arena.onrender.com`, set `ALLOWED_ORIGINS` on that service to the real address.
 
 ### Phase 6 — Kid creatures, sound, and music
 

@@ -356,7 +356,8 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
 
   // --- Determine AI action (respects cooldown, items, and status) ---
   const aiItems = aiConfig?.items || []
-  const aiAction = aiChooseAction(aiCreature, playerCreature, aiTeam, aiActiveIdx, aiConfig, typeChart, aiItems, aiCooldown)
+  const aiAction = aiConfig?.opponentAction
+    || aiChooseAction(aiCreature, playerCreature, aiTeam, aiActiveIdx, aiConfig, typeChart, aiItems, aiCooldown)
 
   // --- Handle switches (happen before attacks) ---
 
@@ -543,19 +544,37 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
       }
     }
 
-    // Player fainted — resets player cooldown, they choose who to send in
+    // Player fainted. In a friend battle both sides send the next creature.
+    // In the story, the player chooses.
     if (currentPlayer.fainted) {
       result.cooldowns.player = 0
-      events.push({
-        type: 'forceSwitch',
-        data: {
-          creature: 'player',
-          fromName: currentPlayer.name,
-          toName: null, // Player must choose
-          newIndex: null,
-          needsSelection: true,
-        },
-      })
+      if (aiConfig?.pvp) {
+        const nextPlayer = playerTeam.findIndex((c, i) => i !== newPlayerIdx && !c.fainted)
+        if (nextPlayer !== -1) {
+          result.playerActiveIdx = nextPlayer
+          events.push({
+            type: 'forceSwitch',
+            data: {
+              creature: 'player',
+              fromName: currentPlayer.name,
+              toName: playerTeam[nextPlayer].name,
+              newIndex: nextPlayer,
+              needsSelection: false,
+            },
+          })
+        }
+      } else {
+        events.push({
+          type: 'forceSwitch',
+          data: {
+            creature: 'player',
+            fromName: currentPlayer.name,
+            toName: null,
+            newIndex: null,
+            needsSelection: true,
+          },
+        })
+      }
     }
   }
 
