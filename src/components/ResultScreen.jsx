@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import { CREATURES } from '../data/creatures.js'
 import { TYPE_COLORS } from '../data/types.js'
-import { addWin, applyLevelUp, getAvailableNewMove, learnMove, skipMove } from '../systems/progression.js'
+import { addXp, xpFromFoe, getAvailableNewMove, learnMove, skipMove, createCreatureSaveState, levelForNewUnlock } from '../systems/progression.js'
+import { evolveIfReady, replaceCreatureId } from '../systems/evolution.js'
+import { itemRewardForBattle, addItem, ITEMS } from '../data/items.js'
+import EvolutionModal from './EvolutionModal.jsx'
 import { advanceCampaign, trackPlayerTypes, applyRivalReward } from '../systems/campaignManager.js'
 import { getGymById, getRivalByZone } from '../data/campaign.js'
 import { getAllCreatures } from '../utils/customData.js'
@@ -15,6 +18,8 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
   const [unlockedCreature] = useState(null)
   const [badgeEarned, setBadgeEarned] = useState(null)
   const [processed, setProcessed] = useState(false)
+  const [evolutions, setEvolutions] = useState([])
+  const [itemReward, setItemReward] = useState(null)
 
   const won = result?.won
   const allCreatures = getAllCreatures(gameState)
@@ -58,38 +63,63 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
       updatedState.campaign = advanceCampaign(updatedState.campaign, battleInfo)
     }
 
-    // Process each creature's XP/levels
+    const foeLevels = (battleInfo?.aiTeamSpec || []).map(spec => spec.level).filter(Boolean)
+    const foeLevel = foeLevels.length
+      ? Math.round(foeLevels.reduce((sum, level) => sum + level, 0) / foeLevels.length)
+      : (battleInfo?.rivalLevel || 8)
+    const xpGain = xpFromFoe(foeLevel)
+
+    // Process each creature's XP, evolution, and a new move if one is ready
     const learnQueue = []
+    const evoQueue = []
     for (const creatureId of selectedTeam) {
       const progress = updatedState.creatureProgress[creatureId]
       if (!progress) continue
 
-      const { state: afterWin, leveledUp } = addWin({ ...progress, id: creatureId })
-      let updated = afterWin
-
+      const { state: afterXp, leveledUp } = addXp({ ...progress, id: creatureId }, xpGain)
+      let updated = afterXp
       const template = allCreatures[creatureId]
       const creatureResult = {
         id: creatureId, name: template?.name, type: template?.type,
         winsGained: 1, leveledUp: false,
-        oldLevel: progress.level, newLevel: progress.level,
+        oldLevel: progress.level, newLevel: updated.level,
         wins: updated.wins,
+        xpGain,
       }
 
-      if (leveledUp) {
-        updated = applyLevelUp(updated)
-        creatureResult.leveledUp = true
+      if (leveledUp) creatureResult.leveledUp = true
+
+      const evolved = evolveIfReady(updated)
+      if (evolved.evolved) {
+        evoQueue.push(evolved.evolved)
+        updatedState = replaceCreatureId(updatedState, creatureId, evolved.evolved.toId, evolved.progress)
+        updated = evolved.progress
+        creatureResult.evolvedTo = evolved.evolved.toName
         creatureResult.newLevel = updated.level
-        const newMove = getAvailableNewMove(updated)
-        if (newMove) {
-          learnQueue.push({
-            creatureId, creatureName: template?.name, creatureType: template?.type,
-            currentMoves: [...updated.currentMoves], newMoveId: newMove,
-          })
-        }
+      } else {
+        updatedState.creatureProgress = { ...updatedState.creatureProgress, [creatureId]: updated }
       }
 
-      updatedState.creatureProgress[creatureId] = updated
+      const moveTemplate = allCreatures[updated.id] || template
+      const newMove = getAvailableNewMove(updated)
+      if (newMove) {
+        learnQueue.push({
+          creatureId: updated.id,
+          creatureName: moveTemplate?.name,
+          creatureType: moveTemplate?.type,
+          currentMoves: [...updated.currentMoves],
+          newMoveId: newMove,
+        })
+      }
+
       results.push(creatureResult)
+    }
+    if (evoQueue.length) setEvolutions(evoQueue)
+
+    const reward = itemRewardForBattle(battleInfo)
+    if (reward) {
+      updatedState.bag = addItem(updatedState.bag, reward)
+      setItemReward(reward)
     }
 
     // Badge earned for gym leaders
@@ -101,7 +131,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
 
       // Leader creature pick — show modal after processing
       // Find 3 creatures the player doesn't have yet
-      const lockedCreatures = Object.keys(CREATURES).filter(id => !updatedState.unlockedCreatureIds.includes(id))
+      const lockedCreatures = Object.keys(CREATURES).filter(id => !CREATURES[id].prevolution && !CREATURES[id].isCustom && !updatedState.unlockedCreatureIds.includes(id))
       if (lockedCreatures.length > 0 && onShowCreaturePick) {
         const pickPool = lockedCreatures.sort(() => Math.random() - 0.5).slice(0, Math.min(3, lockedCreatures.length))
         setTimeout(() => {
@@ -114,12 +144,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
                 const template = CREATURES[pickedId]
                 if (template) {
                   next.creatureProgress = { ...next.creatureProgress }
-                  next.creatureProgress[pickedId] = {
-                    level: 1, wins: 0,
-                    currentMoves: [template.movePool[0], template.movePool[1]],
-                    learnedMoves: [template.movePool[0], template.movePool[1]],
-                    movesOffered: 2,
-                  }
+                  next.creatureProgress[pickedId] = createCreatureSaveState(pickedId, levelForNewUnlock(next.campaign))
                 }
                 return next
               })
@@ -149,7 +174,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
         // Rival 1 and 2 also give a creature pick
         const givesCreaturePick = battleInfo.zoneId === 'zone1' || battleInfo.zoneId === 'zone2'
         if (givesCreaturePick) {
-          const lockedCreatures = Object.keys(CREATURES).filter(id => !updatedState.unlockedCreatureIds.includes(id))
+          const lockedCreatures = Object.keys(CREATURES).filter(id => !CREATURES[id].prevolution && !CREATURES[id].isCustom && !updatedState.unlockedCreatureIds.includes(id))
           if (lockedCreatures.length > 0 && onShowCreaturePick) {
             const pickPool = lockedCreatures.sort(() => Math.random() - 0.5).slice(0, Math.min(3, lockedCreatures.length))
             const rivalName = gameState.campaign?.rivalName || 'Rival'
@@ -163,12 +188,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
                     const template = CREATURES[pickedId]
                     if (template) {
                       next.creatureProgress = { ...next.creatureProgress }
-                      next.creatureProgress[pickedId] = {
-                        level: 1, wins: 0,
-                        currentMoves: [template.movePool[0], template.movePool[1]],
-                        learnedMoves: [template.movePool[0], template.movePool[1]],
-                        movesOffered: 2,
-                      }
+                      next.creatureProgress[pickedId] = createCreatureSaveState(pickedId, levelForNewUnlock(next.campaign))
                     }
                     return next
                   })
@@ -246,7 +266,14 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-      {currentLearn && (
+      {evolutions.length > 0 && (
+        <EvolutionModal
+          evolution={evolutions[0]}
+          onDone={() => setEvolutions(queue => queue.slice(1))}
+        />
+      )}
+
+      {evolutions.length === 0 && currentLearn && (
         <MoveLearnModal
           creatureName={currentLearn.creatureName}
           creatureType={currentLearn.creatureType}
@@ -294,7 +321,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
                     <p className="font-ui font-bold" style={{ color: colors?.light }}>{cr.name}</p>
                     {won ? (
                       <p className="font-ui text-xs text-slate-500">
-                        +1 Win ({cr.wins} total — {cr.wins % 2 === 0 ? 'leveled!' : `${2 - (cr.wins % 2)} more to level`})
+                        +{cr.xpGain || 0} XP{cr.evolvedTo ? ` · grew into ${cr.evolvedTo}!` : ''}
                       </p>
                     ) : (
                       <p className="font-ui text-xs text-slate-500">No XP from defeat</p>
@@ -334,6 +361,10 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
             </p>
           </div>
         </div>
+      )}
+
+      {itemReward && ITEMS[itemReward] && (
+        <p className="font-ui text-base text-amber-300 mt-4">Found a {ITEMS[itemReward].name}!</p>
       )}
 
       {/* Action buttons */}

@@ -4,27 +4,13 @@ import { BattleScene } from '../game/scenes/BattleScene.js'
 import { createBattleCreature, executeTurn } from '../systems/battleEngine.js'
 import { getAllCreatures, getAllCreatureList, getFullTypeChart, getFullTypeColors, getTypeNames } from '../utils/customData.js'
 import { buildRivalTeam } from '../data/campaign.js'
-import { MOVE_LEARN_LEVELS } from '../systems/progression.js'
+import { movesKnownAtLevel } from '../systems/progression.js'
 import BattleControls from './BattleControls.jsx'
 
 // Shared data store — scene reads on init
 let _pendingBattleData = null
 
-/**
- * Determine how many moves a creature at a given level should know.
- * Levels correspond to MOVE_LEARN_LEVELS: level 1→2 moves, level 2→3, level 4→4, etc.
- */
-function moveCountForLevel(level) {
-  let count = 2 // starter moves (slots 0 and 1, both at level 1)
-  // Slots 2-7 unlock at levels defined in MOVE_LEARN_LEVELS
-  for (let i = 2; i <= 7; i++) {
-    if (MOVE_LEARN_LEVELS[i] !== undefined && level >= MOVE_LEARN_LEVELS[i]) count++
-    else break
-  }
-  return Math.min(count, 8)
-}
-
-export default function BattleContainer({ gameState, selectedTeam, battleInfo, onBattleEnd }) {
+export default function BattleContainer({ gameState, selectedTeam, battleInfo, onBattleEnd, onUpdateGameState }) {
   const containerRef = useRef(null)
   const gameRef = useRef(null)
   const sceneRef = useRef(null)
@@ -36,10 +22,14 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
   const onBattleEndRef = useRef(onBattleEnd)
   const aiConfigRef = useRef(battleInfo?.aiConfig || { optimalChance: 0.5, switchBehavior: 'never', teamBuild: 'random' })
   const typeChartRef = useRef(null)
+  const bagRef = useRef({ ...(gameState?.bag || {}) })
+  const onBagRef = useRef(onUpdateGameState)
   const [controls, setControls] = useState(null)
   const [logLines, setLogLines] = useState([])
+  const [bag, setBag] = useState(() => ({ ...(gameState?.bag || {}) }))
 
   useEffect(() => { onBattleEndRef.current = onBattleEnd }, [onBattleEnd])
+  useEffect(() => { onBagRef.current = onUpdateGameState }, [onUpdateGameState])
 
   const handlePlayerAction = useCallback((action) => {
     const scene = sceneRef.current
@@ -48,8 +38,9 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
     scene.isAnimating = true
     scene.hideMoveButtons()
 
+    const turnAction = action.type === 'item' ? { ...action, bag: bagRef.current } : action
     const result = executeTurn(
-      action,
+      turnAction,
       playerTeamRef.current,
       playerActiveIdxRef.current,
       aiTeamRef.current,
@@ -73,6 +64,11 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
 
     // Pass cooldown to scene so it can update switch button state
     scene.playerSwitchCooldown = cooldownsRef.current.player
+    if (turnAction.type === 'item') {
+      const nextBag = { ...bagRef.current }
+      setBag(nextBag)
+      onBagRef.current?.(prev => prev ? { ...prev, bag: nextBag } : prev)
+    }
     scene.processTurnResult(result)
   }, [])
 
@@ -98,12 +94,12 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
       aiTeam = battleInfo.aiTeamSpec.map(spec => {
         const template = allCreatures[spec.id]
         if (!template) return null
-        const mc = moveCountForLevel(spec.level)
+        const known = movesKnownAtLevel(template, spec.level)
         return createBattleCreature({
           id: spec.id, level: spec.level, wins: 0,
-          currentMoves: template.movePool.slice(0, Math.min(mc, 4)),
-          learnedMoves: template.movePool.slice(0, mc),
-          movesOffered: mc,
+          currentMoves: known.slice(0, 4),
+          learnedMoves: known,
+          movesOffered: known.length,
         }, allCreatures)
       }).filter(Boolean)
     } else {
@@ -117,17 +113,23 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
       aiTeam = rivalSpecs.map(spec => {
         const template = allCreatures[spec.id]
         if (!template) return null
-        const mc = moveCountForLevel(spec.level)
+        const known = movesKnownAtLevel(template, spec.level)
         return createBattleCreature({
           id: spec.id, level: spec.level, wins: 0,
-          currentMoves: template.movePool.slice(0, Math.min(mc, 4)),
-          learnedMoves: template.movePool.slice(0, mc),
-          movesOffered: mc,
+          currentMoves: known.slice(0, 4),
+          learnedMoves: known,
+          movesOffered: known.length,
         }, allCreatures)
       }).filter(Boolean)
     }
 
-    aiConfigRef.current = battleInfo.aiConfig || { optimalChance: 0.5, switchBehavior: 'never', teamBuild: 'random' }
+    const aiItems = []
+    if (battleInfo.type === 'leader' || battleInfo.type === 'rival') aiItems.push('super_potion')
+    else if (battleInfo.zoneId === 'zone3' || battleInfo.zoneId === 'zone4') aiItems.push('potion')
+    aiConfigRef.current = {
+      ...(battleInfo.aiConfig || { optimalChance: 0.5, switchBehavior: 'never', teamBuild: 'random' }),
+      items: aiItems,
+    }
     const typeChart = getFullTypeChart(gameState)
     const typeColors = getFullTypeColors(gameState)
     const typeNames = getTypeNames(gameState)
@@ -217,7 +219,9 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
           logLines={logLines}
           typeColors={typeColors}
           typeNames={typeNames}
+          bag={bag}
           onAttack={(moveId) => handlePlayerAction({ type: 'attack', moveId })}
+          onUseItem={(itemId, targetIndex) => handlePlayerAction({ type: 'item', itemId, targetIndex })}
           onRequestSwitch={() => sceneRef.current?.showSwitchPanel()}
           onCancelSwitch={() => sceneRef.current?.cancelSwitch()}
           onPickCreature={(index) => {

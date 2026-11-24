@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "verify": "node scripts/verify-phase1.mjs",
+    "verify": "node scripts/verify-phase1.mjs && node scripts/verify-phase2.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

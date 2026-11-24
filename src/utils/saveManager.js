@@ -1,10 +1,13 @@
 // Save/load system — localStorage persistence with JSON file export/import
 import { CREATURES } from '../data/creatures.js'
 import { MOVES } from '../data/moves.js'
+import { emptyBag } from '../data/items.js'
+import { createCreatureSaveState, mapLegacyLevel, xpToReachLevel, movesKnownAtLevel } from '../systems/progression.js'
+import { evolveIfReady, replaceCreatureId } from '../systems/evolution.js'
 
 const LEGACY_SAVE_KEY = 'battle-arena-save'
 const PROFILE_KEY = 'battle-arena-profiles'
-const CURRENT_VERSION = 2
+const CURRENT_VERSION = 3
 const PROFILE_VERSION = 1
 
 export const SLOT_COUNT = 4
@@ -36,15 +39,8 @@ const STARTER_CREATURE_IDS = [
 export function getDefaultSave() {
   const creatureProgress = {}
   for (const id of STARTER_CREATURE_IDS) {
-    const template = CREATURES[id]
-    if (!template) continue
-    creatureProgress[id] = {
-      level: 1,
-      wins: 0,
-      currentMoves: [template.movePool[0], template.movePool[1]],
-      learnedMoves: [template.movePool[0], template.movePool[1]],
-      movesOffered: 2,
-    }
+    const progress = createCreatureSaveState(id, 5)
+    if (progress) creatureProgress[id] = progress
   }
 
   return {
@@ -74,6 +70,7 @@ export function getDefaultSave() {
     teamPresets: [],
     customCreatures: [],
     customTypes: [],
+    bag: emptyBag(),
   }
 }
 
@@ -163,10 +160,50 @@ function migrateSave(data) {
     migrated.version = 2
   }
 
+  // v2 → v3: higher level cap, XP, evolution, bag
+  if (!migrated.version || migrated.version < 3) {
+    const notes = []
+    let state = migrated
+    const ids = Object.keys(state.creatureProgress || {})
+    for (const id of ids) {
+      const progress = state.creatureProgress?.[id]
+      if (!progress) continue
+      const template = CREATURES[progress.id || id] || CREATURES[id]
+      if (!template || template.isCustom) continue
+      const level = mapLegacyLevel(progress.level || 1)
+      const known = movesKnownAtLevel(template, level)
+      const learned = [...new Set([...(progress.learnedMoves || []), ...known])]
+      const kept = (progress.currentMoves || []).filter(moveId => learned.includes(moveId))
+      const nextProgress = {
+        ...progress,
+        id,
+        level,
+        xp: xpToReachLevel(level),
+        heldItem: progress.heldItem || null,
+        learnedMoves: learned,
+        currentMoves: (kept.length ? kept : known.slice(0, 2)).slice(0, 4),
+        movesOffered: learned.length,
+      }
+      state = {
+        ...state,
+        creatureProgress: { ...state.creatureProgress, [id]: nextProgress },
+      }
+      const evolved = evolveIfReady(nextProgress)
+      if (evolved.evolved) {
+        notes.push(`${evolved.evolved.fromName} grew into ${evolved.evolved.toName}`)
+        state = replaceCreatureId(state, id, evolved.evolved.toId, evolved.progress)
+      }
+    }
+    if (!state.bag) state.bag = emptyBag()
+    if (notes.length) state.growthNotes = notes
+    migrated = state
+  }
+
   // Ensure all expected fields exist with defaults
   if (!migrated.customCreatures) migrated.customCreatures = []
   if (!migrated.customTypes) migrated.customTypes = []
   if (typeof migrated.totalBattlesWon !== 'number') migrated.totalBattlesWon = 0
+  if (!migrated.bag) migrated.bag = emptyBag()
 
   // Ensure all unlocked creatures have progress entries
   if (migrated.unlockedCreatureIds && migrated.creatureProgress) {

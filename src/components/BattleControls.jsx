@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { MOVES } from '../data/moves.js'
 import { TYPE_COLORS } from '../data/types.js'
+import { ITEMS } from '../data/items.js'
+import { STATUSES } from '../data/statuses.js'
 import CreatureSprite from './CreatureSprite.jsx'
 
 function colorsFor(type, typeColors) {
@@ -17,13 +20,17 @@ export default function BattleControls({
   logLines = [],
   typeColors,
   typeNames,
+  bag = {},
   onAttack,
+  onUseItem,
   onRequestSwitch,
   onCancelSwitch,
   onPickCreature,
 }) {
   const mode = controls?.mode || null
   const activeType = controls?.activeType
+  const [itemPick, setItemPick] = useState(null)
+  const bagEntries = Object.entries(bag || {}).filter(([id, count]) => count > 0 && ITEMS[id] && ITEMS[id].kind !== 'held')
 
   return (
     <div className="rounded-2xl border border-slate-700 bg-slate-900/90 p-3 sm:p-4 flex flex-col gap-3 shadow-xl">
@@ -35,7 +42,7 @@ export default function BattleControls({
 
       {mode === 'move' && (
         <>
-          <div className="grid grid-cols-2 gap-2">
+          {!itemPick && <div className="grid grid-cols-2 gap-2">
             {(controls.moves || []).map((moveId) => {
               const move = MOVES[moveId]
               if (!move) return null
@@ -60,8 +67,50 @@ export default function BattleControls({
                 </button>
               )
             })}
-          </div>
-          {controls.team?.some((c, i) => i !== controls.activeIndex && !c.fainted) && (
+          </div>}
+          {bagEntries.length > 0 && !itemPick && (
+            <button
+              type="button"
+              onClick={() => setItemPick('choose')}
+              className="w-full min-h-12 rounded-xl font-ui text-base font-bold uppercase tracking-wider border border-amber-700/50 bg-amber-950/40 text-amber-200 cursor-pointer active:bg-amber-900/50"
+            >
+              Use item
+            </button>
+          )}
+          {itemPick === 'choose' && (
+            <div className="flex flex-col gap-2">
+              {bagEntries.map(([id, count]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setItemPick(id)}
+                  className="min-h-14 rounded-xl px-3 py-2 text-left bg-slate-800 border border-slate-600 cursor-pointer active:bg-slate-700"
+                >
+                  <span className="font-ui text-base font-bold text-slate-100">{ITEMS[id].name} ×{count}</span>
+                  <span className="block font-ui text-sm text-slate-400">{ITEMS[id].desc}</span>
+                </button>
+              ))}
+              <button type="button" onClick={() => setItemPick(null)} className="w-full min-h-12 rounded-xl font-ui font-bold uppercase bg-slate-800 text-slate-300 cursor-pointer">Back to moves</button>
+            </div>
+          )}
+          {itemPick && itemPick !== 'choose' && (
+            <div className="flex flex-col gap-2">
+              <p className="font-ui text-sm font-bold uppercase text-slate-400">Use {ITEMS[itemPick]?.name} on</p>
+              {(controls.team || []).filter(c => !c.fainted).map((creature) => (
+                <button
+                  key={creature.index}
+                  type="button"
+                  onClick={() => { onUseItem(itemPick, creature.index); setItemPick(null) }}
+                  className="min-h-14 rounded-xl px-3 py-2 text-left bg-slate-800 border border-slate-600 cursor-pointer active:bg-slate-700"
+                >
+                  <span className="font-ui text-base font-bold text-slate-100">{creature.name}</span>
+                  <span className="block font-ui text-sm text-slate-400">{creature.currentHp}/{creature.maxHp} HP{creature.status ? ` · ${STATUSES[creature.status]?.short || creature.status}` : ''}</span>
+                </button>
+              ))}
+              <button type="button" onClick={() => setItemPick('choose')} className="w-full min-h-12 rounded-xl font-ui font-bold uppercase bg-slate-800 text-slate-300 cursor-pointer">Back</button>
+            </div>
+          )}
+          {controls.team?.some((c, i) => i !== controls.activeIndex && !c.fainted) && !itemPick && (
             <button
               type="button"
               disabled={!controls.canSwitch}
@@ -104,7 +153,10 @@ export default function BattleControls({
                   <span className="mt-1 block h-2 rounded-full bg-slate-950 overflow-hidden">
                     <span className="block h-full bg-emerald-400" style={{ width: `${pct * 100}%` }} />
                   </span>
-                  <span className="font-ui text-sm text-slate-300">{creature.currentHp}/{creature.maxHp} HP · {labelFor(creature.type, typeNames)}</span>
+                  <span className="font-ui text-sm text-slate-300">
+                    {creature.currentHp}/{creature.maxHp} HP · {labelFor(creature.type, typeNames)}
+                    {creature.status ? ` · ${STATUSES[creature.status]?.name || creature.status}` : ''}
+                  </span>
                 </span>
               </button>
             )

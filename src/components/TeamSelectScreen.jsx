@@ -2,11 +2,15 @@ import { useState, useMemo } from 'react'
 import { CREATURES, CREATURE_LIST } from '../data/creatures.js'
 import { MOVES } from '../data/moves.js'
 import { TYPE_COLORS, TYPE_EMOJIS } from '../data/types.js'
+import { getEffectiveStat } from '../systems/statStages.js'
 import { getAllCreatures, getAllCreatureList, getFullTypeColors, getTypeNames } from '../utils/customData.js'
+import { getAbility } from '../data/abilities.js'
+import { ITEMS } from '../data/items.js'
+import { nextEvolution } from '../data/evolutions.js'
 import CreatureSprite from './CreatureSprite.jsx'
 
 const STAT_LABELS = { hp: 'HP', atk: 'ATK', def: 'DEF', spd: 'SPD', spc: 'SPC' }
-const MAX_STAT = 95 // For bar scaling
+const MAX_STAT = 180 // For bar scaling across the level 50 climb
 
 function StatBar({ label, value, type }) {
   const pct = Math.min(100, (value / MAX_STAT) * 100)
@@ -86,8 +90,8 @@ function CreatureCard({ creatureId, progress, isUnlocked, isSelected, isExpanded
 
   // Apply level bonus to stats for display
   const displayStats = {}
-  for (const [stat, base] of Object.entries(template.baseStats)) {
-    displayStats[stat] = base + (level - 1) * 2
+  for (const stat of Object.keys(template.baseStats)) {
+    displayStats[stat] = getEffectiveStat({ ...template, level, statStages: { atk: 0, def: 0, spd: 0, spc: 0, evasion: 0 } }, stat)
   }
 
   if (!isUnlocked) {
@@ -142,10 +146,19 @@ function CreatureCard({ creatureId, progress, isUnlocked, isSelected, isExpanded
               <p className="font-ui font-bold text-lg leading-tight" style={{ color: colors.light }}>
                 {template.name}
               </p>
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <TypeBadge type={template.type} typeColors={typeColors} typeNames={typeNames} />
                 <span className="text-xs font-ui text-slate-500 uppercase">{template.archetype.replace('_', ' ')}</span>
               </div>
+              {getAbility(template.ability) && (
+                <p className="font-ui text-sm text-slate-400 mt-1">{getAbility(template.ability).name}: {getAbility(template.ability).desc}</p>
+              )}
+              {nextEvolution(creatureId, creaturesMap) && (
+                <p className="font-ui text-sm text-amber-300/90">Evolves at Lv {nextEvolution(creatureId, creaturesMap).level}</p>
+              )}
+              {progress?.heldItem && ITEMS[progress.heldItem] && (
+                <p className="font-ui text-sm text-slate-300">Holding {ITEMS[progress.heldItem].name}</p>
+              )}
             </div>
           </div>
           <div className="flex flex-col items-end gap-1">
@@ -224,9 +237,9 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
   const typeNames = useMemo(() => getTypeNames(gameState), [gameState])
 
   const sortedCreatures = useMemo(() => {
-    const all = allCreaturesList.map(c => c.id)
-    const unlockedList = all.filter(id => unlocked.has(id))
-    const lockedList = all.filter(id => !unlocked.has(id))
+    const visible = allCreaturesList.filter(creature => unlocked.has(creature.id) || !creature.prevolution)
+    const unlockedList = visible.filter(creature => unlocked.has(creature.id)).map(creature => creature.id)
+    const lockedList = visible.filter(creature => !unlocked.has(creature.id)).map(creature => creature.id)
     return [...unlockedList, ...lockedList]
   }, [unlocked, allCreaturesList])
 

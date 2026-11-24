@@ -3,7 +3,7 @@ import { ZONES } from '../data/campaign.js'
 import { TYPE_COLORS } from '../data/types.js'
 import { isGymUnlocked, isRivalUnlocked, getNextGymBattle, getGymProgress, getBadgeCount, buildGymBattleInfo } from '../systems/campaignManager.js'
 
-export default function CampaignMapScreen({ gameState, onSelectBattle, onBadges, onMoveTutor, onBack, onChangeTeam }) {
+export default function CampaignMapScreen({ gameState, onSelectBattle, onBadges, onMoveTutor, onBack, onChangeTeam, onBag }) {
   const [expandedGym, setExpandedGym] = useState(null)
   const campaign = gameState?.campaign || {}
   const rewards = gameState?.rewards || {}
@@ -67,6 +67,12 @@ export default function CampaignMapScreen({ gameState, onSelectBattle, onBadges,
 
       {/* Action bar */}
       <div className="flex gap-2 mb-4 justify-center flex-wrap">
+        {onBag && (
+          <button onClick={onBag}
+            className="px-4 py-2 rounded-lg text-sm font-ui font-bold uppercase bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-amber-200 border border-amber-800/30 transition-all cursor-pointer">
+            Bag
+          </button>
+        )}
         <button onClick={onChangeTeam}
           className="px-4 py-2 rounded-lg text-sm font-ui font-bold uppercase bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 border border-slate-700 transition-all cursor-pointer">
           Change Team

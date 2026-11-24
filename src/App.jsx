@@ -15,6 +15,7 @@ import { getGymById, getZoneById } from './data/campaign.js'
 import MoveTutorScreen from './components/MoveTutorScreen.jsx'
 import CreaturePickModal from './components/CreaturePickModal.jsx'
 import ProfilePicker from './components/ProfilePicker.jsx'
+import BagScreen from './components/BagScreen.jsx'
 import { getNextReplayBattle } from './systems/campaignManager.js'
 
 // Error boundary to prevent crashes from losing save data
@@ -398,6 +399,15 @@ function App() {
             onMoveTutor={() => transitionTo('moveTutor')}
             onBack={() => transitionTo('title')}
             onChangeTeam={() => transitionTo('teamSelect')}
+            onBag={() => transitionTo('bag')}
+          />
+        )
+      case 'bag':
+        return (
+          <BagScreen
+            gameState={gameState}
+            onUpdateGameState={handleUpdateGameState}
+            onBack={() => transitionTo('campaignMap')}
           />
         )
       case 'badges':
@@ -423,6 +433,7 @@ function App() {
             selectedTeam={gameState?.lastTeam || []}
             battleInfo={currentBattleInfo}
             onBattleEnd={handleBattleEnd}
+            onUpdateGameState={handleUpdateGameState}
           />
         )
       case 'result':
@@ -503,6 +514,19 @@ function App() {
         )}
 
         {/* Reward splash */}
+        {gameState?.growthNotes?.length > 0 && screen !== 'battle' && screen !== 'profiles' && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => handleUpdateGameState(prev => ({ ...prev, growthNotes: [] }))}>
+            <div className="absolute inset-0 bg-black/70" />
+            <div className="relative max-w-md w-full rounded-2xl bg-slate-900 border border-amber-500/40 p-6 text-center">
+              <h2 className="font-game text-2xl text-amber-300 mb-3">Your team grew!</h2>
+              <ul className="font-ui text-lg text-slate-200 space-y-2 mb-4">
+                {gameState.growthNotes.map(note => <li key={note}>{note}</li>)}
+              </ul>
+              <p className="font-ui text-sm text-slate-500">Tap to continue</p>
+            </div>
+          </div>
+        )}
+
         {rewardSplash && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setRewardSplash(null)}>
             <div className="absolute inset-0 bg-black/70" />

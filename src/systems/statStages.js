@@ -45,8 +45,9 @@ export function applyStatStage(creature, stat, stages) {
 export function getEffectiveStat(creature, statName) {
   const base = creature.baseStats[statName]
   const level = creature.level || 1
-  // 8% of base per level, minimum +1 per level
-  const perLevel = Math.max(1, Math.floor(base * 0.08))
+  // 3.5% of base per level, minimum +1. Gentle enough that level 50
+  // is strong without making the gym climb a stat explosion.
+  const perLevel = Math.max(1, Math.floor(base * 0.035))
   const levelBonus = (level - 1) * perLevel
 
   // HP is not affected by stat stages

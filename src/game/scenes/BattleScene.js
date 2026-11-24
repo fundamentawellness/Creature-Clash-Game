@@ -108,6 +108,7 @@ export class BattleScene extends Phaser.Scene {
         fainted: !!c.fainted,
         currentHp: c.currentHp,
         maxHp: c.currentStats?.hp || 1,
+        status: c.status?.id || null,
       })),
     })
   }
@@ -316,7 +317,7 @@ export class BattleScene extends Phaser.Scene {
     if (player) {
       this.playerNameText.setText(player.name)
       this.playerLevelText.setText(`Lv${player.level}`)
-      this.playerTypeBadge.setText(this.typeLabel(player.type))
+      this.playerTypeBadge.setText(this.typeLabel(player.type) + (player.status ? `  ${String(player.status.id).toUpperCase()}` : ''))
       this.playerTypeBadge.setColor(this.typeColor(player.type).light || '#94a3b8')
       this.updateHpBar('player', player)
     }
@@ -324,7 +325,7 @@ export class BattleScene extends Phaser.Scene {
     if (enemy) {
       this.enemyNameText.setText(enemy.name)
       this.enemyLevelText.setText(`Lv${enemy.level}`)
-      this.enemyTypeBadge.setText(this.typeLabel(enemy.type))
+      this.enemyTypeBadge.setText(this.typeLabel(enemy.type) + (enemy.status ? `  ${String(enemy.status.id).toUpperCase()}` : ''))
       this.enemyTypeBadge.setColor(this.typeColor(enemy.type).light || '#94a3b8')
       this.updateHpBar('ai', enemy)
     }
@@ -798,6 +799,22 @@ export class BattleScene extends Phaser.Scene {
         this.addLogLine(`${event.data.name} recovered ${event.data.amount} HP!`)
         const creature = isPlayer ? this.getPlayerCreature() : this.getAiCreature()
         this.tweenHpBar(isPlayer ? 'player' : 'ai', creature, () => delay(300))
+        break
+      }
+
+      case 'status':
+      case 'statusBlock':
+      case 'statusHurt':
+      case 'endure':
+      case 'item': {
+        const text = event.data.text || event.data.label || ''
+        if (text) this.addLogLine(text)
+        if (event.type === 'statusHurt' || event.type === 'item') {
+          const side = event.data.creature === 'player' ? 'player' : 'ai'
+          const creature = side === 'player' ? this.getPlayerCreature() : this.getAiCreature()
+          if (creature) this.updateHpBar(side, creature)
+        }
+        delay(350)
         break
       }
 

@@ -7,32 +7,32 @@
 const flameNip =     { id: 'flame_nip',     name: 'Flame Nip',     type: 'fire',     power: 35, accuracy: 100, category: 'physical', effect: null }
 const waterSplash =  { id: 'water_splash',  name: 'Water Splash',  type: 'water',    power: 35, accuracy: 100, category: 'special',  effect: null }
 const vineWhip =     { id: 'vine_whip',     name: 'Vine Whip',     type: 'grass',    power: 35, accuracy: 100, category: 'physical', effect: null }
-const spark =        { id: 'spark',         name: 'Spark',         type: 'electric', power: 35, accuracy: 100, category: 'physical', effect: null }
+const spark =        { id: 'spark',         name: 'Spark',         type: 'electric', power: 35, accuracy: 100, category: 'physical', effect: null, statusOnHit: { id: 'paralysis', chance: 0.2 } }
 const pebbleToss =   { id: 'pebble_toss',   name: 'Pebble Toss',   type: 'rock',     power: 35, accuracy: 100, category: 'physical', effect: null }
 const mudSlap =      { id: 'mud_slap',      name: 'Mud Slap',      type: 'ground',   power: 35, accuracy: 100, category: 'special',  effect: null }
-const poisonSting =  { id: 'poison_sting',  name: 'Poison Sting',  type: 'poison',   power: 35, accuracy: 100, category: 'physical', effect: null }
+const poisonSting =  { id: 'poison_sting',  name: 'Poison Sting',  type: 'poison',   power: 35, accuracy: 100, category: 'physical', effect: null, statusOnHit: { id: 'poison', chance: 0.3 } }
 
 // ============================================================
 // STAB Moves — Medium tier (55 power)
 // ============================================================
-const fireFang =     { id: 'fire_fang',     name: 'Fire Fang',     type: 'fire',     power: 55, accuracy: 95, category: 'physical', effect: null }
+const fireFang =     { id: 'fire_fang',     name: 'Fire Fang',     type: 'fire',     power: 55, accuracy: 95, category: 'physical', effect: null, statusOnHit: { id: 'burn', chance: 0.1 } }
 const aquaJet =      { id: 'aqua_jet',      name: 'Aqua Jet',      type: 'water',    power: 55, accuracy: 95, category: 'physical', effect: null }
 const leafBlade =    { id: 'leaf_blade',    name: 'Leaf Blade',    type: 'grass',    power: 55, accuracy: 95, category: 'physical', effect: null }
-const thunderFang =  { id: 'thunder_fang',  name: 'Thunder Fang',  type: 'electric', power: 55, accuracy: 95, category: 'physical', effect: null }
+const thunderFang =  { id: 'thunder_fang',  name: 'Thunder Fang',  type: 'electric', power: 55, accuracy: 95, category: 'physical', effect: null, statusOnHit: { id: 'paralysis', chance: 0.1 } }
 const rockSmash =    { id: 'rock_smash',    name: 'Rock Smash',    type: 'rock',     power: 55, accuracy: 95, category: 'physical', effect: null }
 const earthPound =   { id: 'earth_pound',   name: 'Earth Pound',   type: 'ground',   power: 55, accuracy: 95, category: 'physical', effect: null }
-const toxicBite =    { id: 'toxic_bite',    name: 'Toxic Bite',    type: 'poison',   power: 55, accuracy: 95, category: 'physical', effect: null }
+const toxicBite =    { id: 'toxic_bite',    name: 'Toxic Bite',    type: 'poison',   power: 55, accuracy: 95, category: 'physical', effect: null, statusOnHit: { id: 'poison', chance: 0.2 } }
 
 // ============================================================
 // STAB Moves — Strong tier (85 power)
 // ============================================================
-const inferno =      { id: 'inferno',       name: 'Inferno',       type: 'fire',     power: 85, accuracy: 90, category: 'special',  effect: null }
-const hydroCannon =  { id: 'hydro_cannon',  name: 'Hydro Cannon',  type: 'water',    power: 85, accuracy: 90, category: 'special',  effect: null }
+const inferno =      { id: 'inferno',       name: 'Inferno',       type: 'fire',     power: 85, accuracy: 90, category: 'special',  effect: null, statusOnHit: { id: 'burn', chance: 0.3 } }
+const hydroCannon =  { id: 'hydro_cannon',  name: 'Hydro Cannon',  type: 'water',    power: 85, accuracy: 90, category: 'special',  effect: null, statusOnHit: { id: 'freeze', chance: 0.1 } }
 const naturesWrath = { id: 'natures_wrath', name: "Nature's Wrath", type: 'grass',   power: 85, accuracy: 90, category: 'special',  effect: null }
-const stormStrike =  { id: 'storm_strike',  name: 'Storm Strike',  type: 'electric', power: 85, accuracy: 90, category: 'special',  effect: null }
+const stormStrike =  { id: 'storm_strike',  name: 'Storm Strike',  type: 'electric', power: 85, accuracy: 90, category: 'special',  effect: null, statusOnHit: { id: 'paralysis', chance: 0.2 } }
 const avalanche =    { id: 'avalanche',     name: 'Avalanche',     type: 'rock',     power: 85, accuracy: 90, category: 'physical', effect: null }
 const earthquake =   { id: 'earthquake',    name: 'Earthquake',    type: 'ground',   power: 85, accuracy: 90, category: 'physical', effect: null }
-const plagueStrike = { id: 'plague_strike', name: 'Plague Strike', type: 'poison',   power: 85, accuracy: 90, category: 'special',  effect: null }
+const plagueStrike = { id: 'plague_strike', name: 'Plague Strike', type: 'poison',   power: 85, accuracy: 90, category: 'special',  effect: null, statusOnHit: { id: 'poison', chance: 0.3 } }
 
 // ============================================================
 // Normal Damage Moves
@@ -99,8 +99,16 @@ const grassBurrow =   { id: 'grass_burrow',   name: 'Grass Burrow',   type: 'gra
 const fireStomp =     { id: 'fire_stomp',     name: 'Fire Stomp',     type: 'fire',     power: 55, accuracy: 90, category: 'physical', effect: null }
 const waterVenom =    { id: 'water_venom',    name: 'Water Venom',    type: 'water',    power: 50, accuracy: 95, category: 'special',  effect: null }
 const groundOoze =    { id: 'ground_ooze',    name: 'Ground Ooze',    type: 'ground',   power: 50, accuracy: 95, category: 'special',  effect: null }
-const grassSpore =    { id: 'grass_spore',    name: 'Grass Spore',    type: 'grass',    power: 50, accuracy: 95, category: 'special',  effect: null }
+const grassSpore =    { id: 'grass_spore',    name: 'Grass Spore',    type: 'grass',    power: 50, accuracy: 95, category: 'special',  effect: null, statusOnHit: { id: 'sleep', chance: 0.3 } }
 const fireVenom =     { id: 'fire_venom',     name: 'Fire Venom',     type: 'fire',     power: 55, accuracy: 90, category: 'physical', effect: null }
+
+const searingSnap =   { id: 'searing_snap',   name: 'Searing Snap',   type: 'fire',     power: 70, accuracy: 95, category: 'physical', effect: null, statusOnHit: { id: 'burn', chance: 0.3 } }
+const glacierJet =    { id: 'glacier_jet',    name: 'Glacier Jet',    type: 'water',    power: 70, accuracy: 95, category: 'special',  effect: null, statusOnHit: { id: 'freeze', chance: 0.2 } }
+const drowse =        { id: 'drowse',         name: 'Drowse',        type: 'grass',    power: 0,  accuracy: 90, category: 'status',   effect: { status: 'sleep' } }
+const staticJolt =    { id: 'static_jolt',    name: 'Static Jolt',    type: 'electric', power: 65, accuracy: 95, category: 'special',  effect: null, statusOnHit: { id: 'paralysis', chance: 0.3 } }
+const venomSpit =     { id: 'venom_spit',     name: 'Venom Spit',     type: 'poison',   power: 65, accuracy: 95, category: 'special',  effect: null, statusOnHit: { id: 'poison', chance: 0.4 } }
+const boulderRush =   { id: 'boulder_rush',   name: 'Boulder Rush',   type: 'rock',     power: 75, accuracy: 95, category: 'physical', effect: null }
+const quakeSlam =     { id: 'quake_slam',     name: 'Quake Slam',     type: 'ground',   power: 75, accuracy: 95, category: 'physical', effect: null }
 
 // ============================================================
 // Master moves lookup by ID
@@ -188,4 +196,11 @@ export const MOVES = {
   ground_ooze: groundOoze,
   grass_spore: grassSpore,
   fire_venom: fireVenom,
+  searing_snap: searingSnap,
+  glacier_jet: glacierJet,
+  drowse,
+  static_jolt: staticJolt,
+  venom_spit: venomSpit,
+  boulder_rush: boulderRush,
+  quake_slam: quakeSlam,
 }

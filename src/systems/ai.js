@@ -2,6 +2,7 @@
 // Pure functions, no side effects
 import { MOVES } from '../data/moves.js'
 import { CREATURE_LIST } from '../data/creatures.js'
+import { ITEMS } from '../data/items.js'
 import { calculateDamage, getEffectiveness } from './damage.js'
 
 // Backward-compat: convert old difficulty strings to AI config objects
@@ -79,8 +80,11 @@ function pickOptimalMove(aiCreature, playerCreature, typeChart) {
     let score
     if (move.category === 'status') {
       score = scoreStatusMove(move, aiCreature, playerCreature)
+      if (move.effect?.status && !playerCreature?.status) score += 14
+      if (move.effect?.status && playerCreature?.status) score = -5
     } else {
       score = estimateDamage(aiCreature, move, playerCreature, typeChart)
+      if (move.statusOnHit && !playerCreature?.status) score += 6
     }
     if (score > bestScore) {
       bestScore = score
@@ -108,6 +112,24 @@ function pickRandomMove(aiCreature) {
  * @param {object|string} aiConfig — { optimalChance } or legacy difficulty string
  * @returns {object} selected move from MOVES
  */
+/**
+ * Heal when low, otherwise switch or attack. Leaders carry a potion or two.
+ */
+export function aiChooseAction(aiCreature, playerCreature, aiTeam, aiActiveIdx, aiConfig, typeChart, aiItems, aiCooldown) {
+  const hpPct = aiCreature?.currentHp / (aiCreature?.currentStats?.hp || 1)
+  const healId = (aiItems || []).find(id => {
+    const item = ITEMS[id]
+    return item && (item.kind === 'heal' || item.kind === 'cure') && hpPct < 0.4
+  })
+  if (healId && aiCreature?.status?.id !== 'sleep' && aiCreature?.status?.id !== 'freeze') {
+    return { type: 'item', itemId: healId, targetIndex: aiActiveIdx }
+  }
+
+  const switchIdx = aiCooldown > 0 ? null : aiShouldSwitch(aiTeam, aiActiveIdx, playerCreature, aiConfig, typeChart)
+  if (switchIdx !== null) return { type: 'switch', targetIndex: switchIdx }
+  return { type: 'attack', moveId: aiPickMove(aiCreature, playerCreature, aiConfig, typeChart)?.id }
+}
+
 export function aiPickMove(aiCreature, playerCreature, aiConfig, typeChart) {
   const config = resolveConfig(aiConfig)
   if (Math.random() < config.optimalChance) {
