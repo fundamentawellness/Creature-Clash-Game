@@ -1,6 +1,13 @@
+# Two services in the Creature Clash Render workspace.
+# The kids' site autodeploys main. The room server sleeps on the free plan.
+
 services:
+  # Static site. Name matches https://creature-clash.onrender.com
+  # The rewrite sends every path to index.html. The game stays on the home
+  # address while you play, but a Vite app still needs this so any other
+  # path does not 404.
   - type: web
-    name: battle-arena
+    name: creature-clash
     runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
@@ -13,9 +20,8 @@ services:
         source: /*
         destination: /index.html
 
-  # Private friend battles. Free instances sleep, so the first connection can take a minute.
   - type: web
-    name: battle-arena-rooms
+    name: creature-clash-rooms
     runtime: node
     plan: free
     buildCommand: npm install
@@ -25,4 +31,4 @@ services:
       - key: NODE_VERSION
         value: "22"
       - key: ALLOWED_ORIGINS
-        value: https://battle-arena.onrender.com
+        value: https://creature-clash.onrender.com

@@ -133,9 +133,7 @@ Scenes live in `src/data/story.js`. A portrait is a simple face, not a new paint
 
 **If someone drops.** The battle waits about 45 seconds. Coming back with the same tab rejoins the room. If they do not, the friend who stayed is told the battle is over. A turn that sits for a minute uses the first move so a frozen tablet cannot stall the fight forever.
 
-**The room server.** `server/index.js` is a small Node service. It runs the same turn function as the story, once, and sends each screen the result. The static site reads `VITE_BATTLE_SERVER_URL`, or `https://battle-arena-rooms.onrender.com` if that variable is not set. The server only accepts connections from the static site's origin (and local dev). Free Render instances sleep. The game says "Waking up the arena" while the first connection waits. The island story still works with no server at all.
-
-**One-time setup.** Sync the blueprint so Render creates the `battle-arena-rooms` service on the free plan. If the static site's real address is not `https://battle-arena.onrender.com`, set `ALLOWED_ORIGINS` on that service to the real address.
+**The room server.** `server/index.js` is a small Node service on the free plan. It runs the same turn function as the story, once, and sends each screen the result. The game connects to `https://creature-clash-rooms.onrender.com` (and `wss://` for the live fight) without a build setting on the static site. The server only accepts the game at `https://creature-clash.onrender.com`, plus local testing when that env var is not set. Free instances sleep, so the first connection can take about a minute. The game says "Waking up the arena" while it waits. The island story still works if the room server cannot be reached.
 
 ### Phase 6 — Sound, music, and the kids' creatures
 
@@ -145,7 +143,7 @@ Scenes live in `src/data/story.js`. A portrait is a simple face, not a new paint
 
 **The pedestals.** Heart of the Chain, The Sleeper, and Ashwake's Last Spark live in `src/data/legendaries.js`. Each one has a name, type, stats, moves, ability, optional art, and the island where it appears after the champion fight. `ready` is false, so they are not in the collection and cannot be caught. Setting `ready` to true, after the fields are filled in, wakes that pedestal. `docs/ADD_A_CREATURE.md` is the short guide for doing that with the kids. The Forge is still the toy for extra creatures. Promoting one onto a pedestal is a deliberate edit.
 
-**Saves.** Version 6. Older saves gain sound settings and keep their creatures, story, and bag. A brand-new player still starts on Greenridge and can reach Champion Lumen by sailing the chain. The Render blueprint is unchanged: the static site `battle-arena`, and the free room service `battle-arena-rooms`.
+**Saves.** Version 6. Older saves gain sound settings and keep their creatures, story, and bag. A brand-new player still starts on Greenridge and can reach Champion Lumen by sailing the chain. The kids' site is `https://creature-clash.onrender.com`. `render.yaml` describes that static site and the free room service `creature-clash-rooms`.
 
 ## What we are not doing
 

@@ -96,7 +96,7 @@ export default function OnlineMatch({ gameState, onExit, onChangeTeam }) {
     const reconnecting = !!tokenRef.current && phaseRef.current === 'battle'
     if (!reconnecting) {
       setPhase(current => (current === 'battle' ? current : 'waking'))
-      setStatus('Waking up the arena. Free rooms sleep when nobody is playing, so the first hello can take a minute.')
+      setStatus('Waking up the arena. The free room server sleeps when nobody is playing, so the first hello can take a minute.')
     }
     let opened = false
     const openSocket = () => {
@@ -130,9 +130,8 @@ export default function OnlineMatch({ gameState, onExit, onChangeTeam }) {
       openSocket()
       return
     }
-    const http = arenaHttpUrl()
-    const timer = setTimeout(openSocket, 20000)
-    fetch(`${http}/health`, { signal: AbortSignal.timeout(20000) })
+    const timer = setTimeout(openSocket, 55000)
+    fetch(`${arenaHttpUrl()}/health`, { signal: AbortSignal.timeout(55000) })
       .catch(() => null)
       .finally(() => {
         clearTimeout(timer)
