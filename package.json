@@ -7,13 +7,15 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "verify": "node scripts/verify-phase1.mjs && node scripts/verify-phase2.mjs && node scripts/verify-phase3.mjs && node scripts/verify-phase4.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "rooms": "node server/index.js",
+    "verify": "node scripts/verify-phase1.mjs && node scripts/verify-phase2.mjs && node scripts/verify-phase3.mjs && node scripts/verify-phase4.mjs && node scripts/verify-phase5.mjs"
   },
   "dependencies": {
     "phaser": "^3.90.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "ws": "^8.23.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

@@ -22,6 +22,7 @@ export default function BattleControls({
   typeNames,
   bag = {},
   wild = false,
+  hideItems = false,
   onAttack,
   onCatch,
   onUseItem,
@@ -89,7 +90,7 @@ export default function BattleControls({
               )
             })}
           </div>}
-          {bagEntries.length > 0 && !itemPick && (
+          {bagEntries.length > 0 && !itemPick && !hideItems && (
             <button
               type="button"
               onClick={() => setItemPick('choose')}
