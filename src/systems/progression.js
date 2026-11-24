@@ -2,64 +2,131 @@
 // Pure functions operating on creature save state
 import { CREATURES, CREATURE_LIST } from '../data/creatures.js'
 
-// Move learn schedule: move pool index → level required
-// Slots 1-2 are starters (level 1), then new move every other level
+// Move learn schedule: move pool index → level required.
+// Spread across the climb to level 50 so new moves keep showing up.
+// Index 8 is the evolution signature, offered from the mid levels on.
 export const MOVE_LEARN_LEVELS = {
-  0: 1,  // Slot 1: starter (weak STAB)
-  1: 1,  // Slot 2: starter (normal damage)
-  2: 2,  // Slot 3: level 2
-  3: 4,  // Slot 4: level 4
-  4: 6,  // Slot 5: level 6 — first forget choice
-  5: 8,  // Slot 6: level 8
-  6: 10, // Slot 7: level 10
-  7: 12, // Slot 8: level 12
+  0: 1,
+  1: 1,
+  2: 6,
+  3: 12,
+  4: 18,
+  5: 24,
+  6: 32,
+  7: 40,
+  8: 16,
 }
 
+export const LEVEL_CAP = 50
 const MAX_HELD_MOVES = 4
-const WINS_PER_LEVEL = 2
+
+/** XP needed to go from this level to the next. A fair fight is about one win. */
+export function xpToNext(level) {
+  if (level >= LEVEL_CAP) return Infinity
+  return 8 + level * 2
+}
+
+export function xpToReachLevel(level) {
+  let total = 0
+  for (let l = 1; l < level; l++) total += xpToNext(l)
+  return total
+}
+
+export function levelFromXp(xp) {
+  let level = 1
+  let remaining = Math.max(0, xp || 0)
+  while (level < LEVEL_CAP) {
+    const need = xpToNext(level)
+    if (remaining < need) break
+    remaining -= need
+    level++
+  }
+  return level
+}
+
+/** XP from beating a foe around this level. Weaker foes pay less. */
+export function xpFromFoe(foeLevel) {
+  return 6 + Math.max(1, foeLevel || 1) * 2
+}
+
+/**
+ * Old saves used levels 1–12 as the whole game. Stretch those onto the new climb
+ * so a finished team arrives near the end, and a new team stays near the start.
+ */
+export function mapLegacyLevel(level) {
+  const table = { 1: 5, 2: 8, 3: 12, 4: 15, 5: 18, 6: 22, 7: 26, 8: 30, 9: 33, 10: 36, 11: 39, 12: 42 }
+  if (table[level]) return table[level]
+  return Math.min(LEVEL_CAP, Math.max(1, level || 1))
+}
+
+/** A creature won from a gym should join near the player's climb, not at level 1. */
+export function levelForNewUnlock(campaign) {
+  const badges = campaign?.badges?.length || 0
+  return Math.min(36, Math.max(5, 5 + badges * 2))
+}
 
 /**
  * Create initial save state for a creature.
  */
-export function createCreatureSaveState(creatureId) {
+export function movesKnownAtLevel(template, level) {
+  const known = []
+  template.movePool.forEach((moveId, index) => {
+    const need = MOVE_LEARN_LEVELS[index] ?? 99
+    if (level >= need) known.push(moveId)
+  })
+  return known.length ? known : template.movePool.slice(0, 2)
+}
+
+export function createCreatureSaveState(creatureId, level = 1) {
   const template = CREATURES[creatureId]
   if (!template) return null
+  const safeLevel = Math.min(LEVEL_CAP, Math.max(1, level))
+  const known = movesKnownAtLevel(template, safeLevel)
+  const held = known.slice(0, 4)
 
   return {
     id: creatureId,
-    level: 1,
+    level: safeLevel,
+    xp: xpToReachLevel(safeLevel),
     wins: 0,
-    currentMoves: [template.movePool[0], template.movePool[1]], // Start with 2 moves
-    learnedMoves: [template.movePool[0], template.movePool[1]],
-    movesOffered: 2, // How many moves from the pool have been offered
+    currentMoves: held,
+    learnedMoves: [...known],
+    movesOffered: known.length,
+    heldItem: null,
   }
 }
 
 /**
- * Record a win for a creature. Returns updated state and whether a level up occurred.
+ * Add battle XP. Level is derived from total XP, capped at 50.
+ * Also counts a win, for the old "wins" line on the card.
  */
+export function addXp(creatureState, amount) {
+  const xp = (creatureState.xp || 0) + Math.max(0, amount || 0)
+  const level = levelFromXp(xp)
+  const leveledUp = level > (creatureState.level || 1)
+  return {
+    state: {
+      ...creatureState,
+      xp,
+      level,
+      wins: (creatureState.wins || 0) + 1,
+    },
+    leveledUp,
+    levelsGained: level - (creatureState.level || 1),
+  }
+}
+
+/** @deprecated use addXp. Kept so older call sites still grant a small reward. */
 export function addWin(creatureState) {
-  const newState = { ...creatureState, wins: creatureState.wins + 1 }
-  const leveledUp = checkLevelUp(newState)
-  return { state: newState, leveledUp }
+  return addXp(creatureState, xpFromFoe(creatureState.level || 1))
 }
 
-/**
- * Check if creature should level up based on win count.
- * Level = floor(wins / 2) + 1, capped at 12.
- */
 export function checkLevelUp(creatureState) {
-  const expectedLevel = Math.min(12, Math.floor(creatureState.wins / WINS_PER_LEVEL) + 1)
-  return expectedLevel > creatureState.level
+  return levelFromXp(creatureState.xp || 0) > (creatureState.level || 1)
 }
 
-/**
- * Apply level up — increment level. Stats scale by 8% of base per level on recalc.
- * Returns new state with updated level.
- */
 export function applyLevelUp(creatureState) {
-  const expectedLevel = Math.min(12, Math.floor(creatureState.wins / WINS_PER_LEVEL) + 1)
-  return { ...creatureState, level: expectedLevel }
+  return { ...creatureState, level: levelFromXp(creatureState.xp || 0) }
 }
 
 /**
@@ -70,14 +137,13 @@ export function getAvailableNewMove(creatureState) {
   const template = CREATURES[creatureState.id]
   if (!template) return null
 
-  const nextMoveIdx = creatureState.movesOffered
-  if (nextMoveIdx >= template.movePool.length) return null
-
-  const requiredLevel = MOVE_LEARN_LEVELS[nextMoveIdx]
-  if (creatureState.level >= requiredLevel) {
-    return template.movePool[nextMoveIdx]
+  const learned = new Set(creatureState.learnedMoves || [])
+  for (let i = 0; i < template.movePool.length; i++) {
+    const moveId = template.movePool[i]
+    if (learned.has(moveId)) continue
+    const requiredLevel = MOVE_LEARN_LEVELS[i] ?? 99
+    if ((creatureState.level || 1) >= requiredLevel) return moveId
   }
-
   return null
 }
 
@@ -131,14 +197,14 @@ export function getStartingCreatures() {
 
   // Pick one random creature from each guaranteed type
   for (const type of guaranteed) {
-    const ofType = CREATURE_LIST.filter(c => c.type === type)
+    const ofType = CREATURE_LIST.filter(c => c.type === type && !c.prevolution)
     const pick = ofType[Math.floor(Math.random() * ofType.length)]
     selected.push(pick.id)
     usedIds.add(pick.id)
   }
 
   // Fill remaining 6 slots randomly from unused creatures
-  const remaining = CREATURE_LIST.filter(c => !usedIds.has(c.id))
+  const remaining = CREATURE_LIST.filter(c => !usedIds.has(c.id) && !c.prevolution)
   const shuffled = [...remaining].sort(() => Math.random() - 0.5)
   for (const creature of shuffled) {
     if (selected.length >= 10) break

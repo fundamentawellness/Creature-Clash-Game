@@ -39,9 +39,13 @@ A fight is one creature at a time, with the rest of the team on the bench. Both 
 
 Types matter. Fire, Water, Grass, Electric, Rock, Ground, and Poison follow a simple chart: a move can be strong, weak, normal, or useless against the other creature. A move that matches the attacker's type hits harder. Creatures are one type each.
 
-Stats are HP, Attack, Defense, Speed, and Special. Special is used both for special moves and for soaking special hits. Levels make stats grow. The cap today is level 12, and a creature levels up every two wins. Only the creatures that were on the winning team get the win. A loss does not give progress and does not move the story forward.
+Stats are HP, Attack, Defense, Speed, and Special. Special is used both for special moves and for soaking special hits. Levels make stats grow, up to level 50. A fair fight is about one level. Only the creatures on the winning team get experience. A loss does not give progress and does not move the story forward.
 
-There is no overworld yet, no wild battles, and no catching. A new game starts with 10 creatures. Beating gym leaders and the first two rivals lets you pick more, until all 28 official creatures are unlocked. New unlocks arrive at level 1.
+Every creature line grows. Most lines have two or three forms. Speedsters and glass cannons evolve at levels 16 and 34. Tanks and bruisers evolve once, at level 18. The battle stops for a moment so you can see the new form. Each creature also has one ability, written in a short sentence on the team card.
+
+Burn, poison, numb, sleep, and freeze stick around after the hit. The battle shows the word on the creature. Switching out clears it. A bag of potions and a few held items comes from winning battles. Potions are used on your turn. Held items stay on one creature.
+
+There is no overworld yet, no wild battles, and no catching. A new game starts with 10 creatures at level 5. Beating gym leaders and the first two rivals lets you pick more, until all 28 lines are unlocked. A new teammate arrives near your current progress, not at level 1. The gyms now run from about level 6 up to the low 40s, so the climb reaches the evolutions without asking anyone to grind to 50.
 
 Saves live in the browser on that device (local storage). Nothing is on a server yet.
 
@@ -69,19 +73,19 @@ Each phase should be playable before the next one starts. A kid should be able t
 
 ### Phase 2 — Deeper battles
 
-**Goal.** Fights get more interesting for kids who already know the type chart: creatures can grow into something new, levels go much higher, and status, abilities, and items give more choices than "pick the strong move."
+**This phase is in the game.** The gym campaign is still the way you play. Fights now have evolution, a level cap of 50, lasting status, one ability per creature, and a bag.
 
-**What you can play.** The same islands-to-come campaign, but a long play session does not stop at level 12, and a team can be built around an ability or an item, not only types.
+**What you can play.** The same four zones, with trainers scaled from about level 6 to the low 40s. Creatures evolve on the way. You can pack a potion, give a Snack Berry to a teammate, and read each ability in one sentence.
 
-**Features.**
+**How it works.**
 
-- Evolution. A creature can become a stronger form at a level or after a story moment. The 28 creatures are already grouped as four roles per type (a fast one, a tough one, a glass cannon, a bruiser), which is a natural family to evolve along.
-- A much higher level cap than 12. Today, two wins make one level, in `src/systems/progression.js`. The cap and the "two wins" rule both need to change together so late gyms are not full of level-1 newcomers. Right now a creature you unlock late still starts at level 1. That should be revisited here.
-- Status effects. Today a "status" move only heals or changes Attack, Defense, Speed, Special, or evasion for a few turns. Real lingering effects (a burn, a poison, a sleep) do not exist yet. They would be a new step at the end of each turn.
-- Abilities. Creatures have no ability field. A small set of abilities (one per creature) would be read by the damage and turn code.
-- Items. Nothing is held, and there is no bag. HP is refilled at the start of every fight, which is friendly for now. Items can start as held items in battle before there is a shop.
+- Evolution keeps the 28 creatures as the first form and adds original later forms. Fast and fragile lines evolve at 16 and 34. Tough lines evolve once at 18. An old save is stretched onto this climb: a level 1 creature becomes level 5, and a maxed level 12 creature becomes level 42 and takes the form that level earns. The game tells you if someone grew.
+- Experience replaces "two wins, one level." Beating a foe around your level is about one level. Weaker foes pay less, so grinding the first gym is a slow way up. New teammates from leaders join near your badge count.
+- Status: Burned, Poisoned, Numb, Asleep, Frozen. The word shows on the creature. Burn and poison hurt at the end of the turn. Numb sometimes skips a turn and slows you down. Sleep and freeze make you wait. Switching out clears it. Fire types cannot be burned or frozen. Poison types cannot be poisoned. Electric types cannot be numbed.
+- Abilities are passive. Ember Heart and its cousins hit harder when HP is low. Sturdy and the Focus Ribbon each save you from one knock-out per battle. Hover makes Ground moves miss.
+- The bag starts with two Potions and a Tonic. More comes from wins. Use them in battle on your turn. Held items are given to one creature from the bag screen.
 
-**Notes.** Special is one stat doing two jobs. New effects should say clearly whether they change the attack, the defense, or both. Stat stages already run from -3 to +3 and reset when a creature leaves the field. That is the right place to hang short-term buffs. Do not add a second, conflicting stage system.
+**Notes.** Damage still lives in `src/systems/damage.js`, with ability and item tweaks in `src/systems/battleMods.js`. Lines are listed in `src/data/evolutions.js`. Saves are version 3. A version 2 save is converted when it loads, inside the same player slot. Special is still one stat doing two jobs. Short-term buffs are still the -3 to +3 stages.
 
 ### Phase 3 — Catching and the first islands
 

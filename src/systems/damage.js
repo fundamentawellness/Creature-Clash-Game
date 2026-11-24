@@ -1,6 +1,7 @@
 // Damage calculation system — pure functions, no side effects
 import { TYPE_CHART } from '../data/types.js'
 import { getStatMultiplier } from './statStages.js'
+import { modifyLandedDamage } from './battleMods.js'
 
 /**
  * Look up type effectiveness multiplier from the chart.
@@ -93,8 +94,11 @@ export function calculateDamage(attacker, move, defender, rng = Math.random, typ
   // Raw damage
   const raw = (statRatio * move.power * stabMultiplier * effectiveness * random) / 3.5
 
-  // Minimum 1 damage on hit
-  const damage = Math.max(1, Math.floor(raw))
+  const rolled = Math.max(1, Math.floor(raw))
+  const modified = modifyLandedDamage(rolled, attacker, defender, move)
+  if (modified.immune) {
+    return { damage: 0, effectiveness: 0, stab, missed: false, dodged: false }
+  }
 
-  return { damage, effectiveness, stab, missed: false, dodged: false }
+  return { damage: Math.max(1, modified.damage), effectiveness, stab, missed: false, dodged: false }
 }

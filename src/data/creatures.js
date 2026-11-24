@@ -1,3 +1,5 @@
+import { attachEvolutions } from './evolutions.js'
+
 // All 28 creature definitions
 // Each creature: { id, name, type, archetype, desc, shape, baseStats, movePool }
 // movePool is an array of 8 move IDs in learn order (slots 1-8)
@@ -313,5 +315,11 @@ export const CREATURES = {
   },
 }
 
-// Array form for iteration
+attachEvolutions(CREATURES)
+
+// Array form for iteration. Includes evolved forms.
 export const CREATURE_LIST = Object.values(CREATURES)
+
+export function isBaseCreature(creature) {
+  return !!creature && !creature.prevolution
+}
