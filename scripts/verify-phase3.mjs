@@ -86,7 +86,7 @@ const profiles = {
 }
 writeProfiles(profiles)
 const loaded = loadProfiles()
-assert.equal(loaded.slots[0].save.version, 5)
+assert.equal(loaded.slots[0].save.version, 6)
 assert.ok(loaded.slots[0].save.caughtIds.includes('solmane'))
 assert.ok(loaded.slots[0].save.seenIds.includes('emberpaw'))
 assert.ok(loaded.slots[0].save.bag.lure_orb >= 5)

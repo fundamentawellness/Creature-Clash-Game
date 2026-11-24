@@ -1,4 +1,5 @@
 import { attachEvolutions } from './evolutions.js'
+import { registerLegends } from './legendaries.js'
 
 // All 28 creature definitions
 // Each creature: { id, name, type, archetype, desc, shape, baseStats, movePool }
@@ -316,6 +317,7 @@ export const CREATURES = {
 }
 
 attachEvolutions(CREATURES)
+registerLegends(CREATURES)
 
 // Array form for iteration. Includes evolved forms.
 export const CREATURE_LIST = Object.values(CREATURES)

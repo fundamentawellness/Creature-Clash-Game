@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react'
 import { exportSave, importSave } from '../utils/saveManager.js'
+import { playCue } from '../audio/sound.js'
 
-export default function SettingsMenu({ gameState, onClose, onImport, onReset, slotName }) {
+export default function SettingsMenu({ gameState, onClose, onImport, onReset, slotName, onAudio }) {
   const [confirmReset, setConfirmReset] = useState(false)
   const [importError, setImportError] = useState(null)
   const [importSuccess, setImportSuccess] = useState(false)
@@ -37,9 +38,10 @@ export default function SettingsMenu({ gameState, onClose, onImport, onReset, sl
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80" onClick={onClose}>
       <div
-        className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full mx-4 slide-up shadow-2xl"
+        className="relative z-10 border border-slate-600 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto"
+        style={{ backgroundColor: '#0f172a' }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6">
@@ -51,6 +53,14 @@ export default function SettingsMenu({ gameState, onClose, onImport, onReset, sl
             &times;
           </button>
         </div>
+
+        <SoundSettings
+          settings={gameState?.settings}
+          onChange={(next) => {
+            onAudio?.(next)
+            playCue('tap')
+          }}
+        />
 
         <div className="space-y-3">
           {/* Export */}
@@ -158,6 +168,37 @@ export default function SettingsMenu({ gameState, onClose, onImport, onReset, sl
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function SoundSettings({ settings, onChange }) {
+  const music = settings?.music ?? 0.45
+  const sfx = settings?.sfx ?? 0.7
+  const muted = !!settings?.muted
+  const update = (patch) => onChange?.({ music, sfx, muted, ...patch })
+  return (
+    <div className="mb-4 rounded-xl border border-slate-700 bg-slate-950/60 p-3 space-y-3">
+      <p className="font-ui text-sm font-bold uppercase tracking-wider text-slate-400">Sound</p>
+      <label className="flex items-center justify-between gap-3 font-ui text-slate-200">
+        <span>Mute</span>
+        <input type="checkbox" checked={muted} onChange={(event) => update({ muted: event.target.checked })} className="w-5 h-5" />
+      </label>
+      <label className="block font-ui text-sm text-slate-300">
+        Music {Math.round(music * 100)}
+        <input type="range" min="0" max="1" step="0.05" value={music} onChange={(event) => update({ music: Number(event.target.value) })} className="w-full mt-1" />
+      </label>
+      <label className="block font-ui text-sm text-slate-300">
+        Effects {Math.round(sfx * 100)}
+        <input type="range" min="0" max="1" step="0.05" value={sfx} onChange={(event) => update({ sfx: Number(event.target.value) })} className="w-full mt-1" />
+      </label>
+      <button
+        type="button"
+        onClick={() => playCue('level')}
+        className="w-full min-h-11 rounded-xl bg-slate-800 text-slate-100 font-ui font-bold cursor-pointer"
+      >
+        Play a note
+      </button>
     </div>
   )
 }

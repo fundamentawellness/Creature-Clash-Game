@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { TYPE_COLORS } from '../../data/types.js'
 import { CREATURE_SPRITES, resolveSpriteId } from '../../data/creatureAssets.js'
+import { playCue } from '../../audio/sound.js'
 
 // Layout constants
 const W = 800
@@ -502,6 +503,7 @@ export class BattleScene extends Phaser.Scene {
 
     switch (event.type) {
       case 'attack': {
+        playCue('move', event.data.moveType)
         const isPlayer = event.data.creature === 'player'
         const sprite = isPlayer ? this.playerSprite : this.enemySprite
         if (!sprite) { onDone(); break }
@@ -552,6 +554,7 @@ export class BattleScene extends Phaser.Scene {
       }
 
       case 'damage': {
+        playCue('hit')
         const isPlayer = event.data.creature === 'player'
         const sprite = isPlayer ? this.playerSprite : this.enemySprite
         if (!sprite) { onDone(); break }
@@ -636,6 +639,7 @@ export class BattleScene extends Phaser.Scene {
       }
 
       case 'miss': {
+        playCue('miss')
         const dodged = !!event.data.dodged
         this.addLogLine(dodged ? `${event.data.name} dodged the attack!` : `${event.data.name}'s attack missed!`)
         const popup = this.add.text(W / 2, H / 2, dodged ? 'DODGED!' : 'MISSED!', {
@@ -652,6 +656,7 @@ export class BattleScene extends Phaser.Scene {
       }
 
       case 'faint': {
+        playCue('faint')
         const isPlayer = event.data.creature === 'player'
         const sprite = isPlayer ? this.playerSprite : this.enemySprite
         const shadow = isPlayer ? this.playerShadow : this.enemyShadow
@@ -816,6 +821,8 @@ export class BattleScene extends Phaser.Scene {
       case 'endure':
       case 'item':
       case 'catch': {
+        if (event.type === 'status' || event.type === 'statusBlock' || event.type === 'statusHurt') playCue('status')
+        if (event.type === 'catch') playCue(event.data.caught ? 'catch' : 'miss')
         const text = event.data.text || event.data.label || ''
         if (text) this.addLogLine(text)
         if (event.type === 'statusHurt' || event.type === 'item') {

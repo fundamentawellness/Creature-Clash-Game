@@ -1,26 +1,6 @@
 // The island story. Short scenes, a mischievous digging crew, and the champion climb.
-// Three legendary slots are named here and left empty for creatures the kids invent later.
-
-export const LEGENDS = [
-  {
-    id: 'heart-of-the-chain',
-    name: 'Heart of the Chain',
-    where: 'Crownrest',
-    hint: 'The sleeping heart under the islands. A kid still gets to decide what it looks like.',
-  },
-  {
-    id: 'sleeper-in-the-fog',
-    name: 'The Sleeper',
-    where: 'Mistveil',
-    hint: 'Something in the deep fog has not woken up. Its name and picture are still open.',
-  },
-  {
-    id: 'last-spark',
-    name: "Ashwake's Last Spark",
-    where: 'Ashwake',
-    hint: 'A spark that never went out in the ash. Waiting for a kid to invent the creature.',
-  },
-]
+// The three pedestals live in legendaries.js so a parent can fill them in later.
+export { LEGEND_SLOTS as LEGENDS } from './legendaries.js'
 
 export const CREW = [
   {

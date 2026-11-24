@@ -106,7 +106,7 @@ const profiles = {
 }
 writeProfiles(profiles)
 const loaded = loadProfiles()
-assert.equal(loaded.slots[0].save.version, 5)
+assert.equal(loaded.slots[0].save.version, 6)
 assert.deepEqual(loaded.slots[0].save.story.defeated, [])
 assert.ok(loaded.slots[0].save.unlockedCreatureIds.includes('emberpaw'))
 assert.equal(loaded.slots[1].save, null)
