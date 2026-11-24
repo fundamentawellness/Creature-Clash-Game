@@ -12,6 +12,11 @@ const { CREATURES } = await import('../src/data/creatures.js')
 const { LEGEND_SLOTS, isLegendReady, readyLegends, legendBattle } = await import('../src/data/legendaries.js')
 const { getDefaultSave, loadProfiles, writeProfiles } = await import('../src/utils/saveManager.js')
 const { playCue, defaultAudioSettings } = await import('../src/audio/sound.js')
+const { DEFAULT_ARENA_URL, toWebSocketUrl } = await import('../src/online/arenaUrl.js')
+
+assert.equal(DEFAULT_ARENA_URL, 'https://creature-clash-rooms.onrender.com')
+assert.equal(toWebSocketUrl(DEFAULT_ARENA_URL), 'wss://creature-clash-rooms.onrender.com')
+assert.equal(toWebSocketUrl('http://127.0.0.1:8787/'), 'ws://127.0.0.1:8787')
 
 assert.equal(LEGEND_SLOTS.length, 3)
 assert.deepEqual(readyLegends(), [])
