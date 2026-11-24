@@ -20,6 +20,8 @@ import IslandMapScreen from './components/IslandMapScreen.jsx'
 import IslandScreen from './components/IslandScreen.jsx'
 import CollectionBookScreen from './components/CollectionBookScreen.jsx'
 import { markSeen, buyItem } from './systems/world.js'
+import { pendingScene, markSceneSeen } from './systems/story.js'
+import StoryScene from './components/StoryScene.jsx'
 import { getNextReplayBattle } from './systems/campaignManager.js'
 
 // Error boundary to prevent crashes from losing save data
@@ -399,7 +401,18 @@ function App() {
             onBack={() => transitionTo('teamSelect')}
           />
         )
-      case 'world':
+      case 'world': {
+        const mapScene = pendingScene(gameState, 'map')
+        if (mapScene) {
+          return (
+            <StoryScene
+              scene={mapScene}
+              playerName={gameState?.campaign?.playerName}
+              rivalName={gameState?.campaign?.rivalName}
+              onDone={() => handleUpdateGameState(prev => markSceneSeen(prev, mapScene.id))}
+            />
+          )
+        }
         return (
           <IslandMapScreen
             gameState={gameState}
@@ -411,7 +424,19 @@ function App() {
             onMenu={() => transitionTo('title')}
           />
         )
-      case 'island':
+      }
+      case 'island': {
+        const islandScene = pendingScene(gameState, currentIsland)
+        if (islandScene) {
+          return (
+            <StoryScene
+              scene={islandScene}
+              playerName={gameState?.campaign?.playerName}
+              rivalName={gameState?.campaign?.rivalName}
+              onDone={() => handleUpdateGameState(prev => markSceneSeen(prev, islandScene.id))}
+            />
+          )
+        }
         return (
           <IslandScreen
             islandId={currentIsland}
@@ -422,6 +447,7 @@ function App() {
             onShopBuy={(itemId, price) => handleUpdateGameState(prev => buyItem(prev, itemId, price))}
           />
         )
+      }
       case 'book':
         return (
           <CollectionBookScreen

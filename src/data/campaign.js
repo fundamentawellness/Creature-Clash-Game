@@ -399,7 +399,89 @@ const ZONE_4 = {
 // EXPORTS
 // ============================================================
 
-export const ZONES = [ZONE_1, ZONE_2, ZONE_3, ZONE_4]
+// ============================================================
+// ZONE 5 — MISTVEIL
+// ============================================================
+const ZONE_5 = {
+  id: 'zone5',
+  name: 'Mistveil',
+  description: 'Ruins in the fog. The old story starts to show.',
+  levelRange: [42, 48],
+  trainersPerGym: 2,
+  aiConfig: { optimalChance: 0.85, switchBehavior: 'smart', teamBuild: 'typeCoverage' },
+  leaderAiConfig: { optimalChance: 0.95, switchBehavior: 'proactive', teamBuild: 'optimized' },
+  maxTeamSize: 4,
+  gyms: [
+    {
+      id: 'z5g1', name: 'Veil Gym', zone: 'zone5',
+      types: ['water', 'poison'],
+      badge: { name: 'Veil Badge', icon: '🌫️' },
+      trainers: [
+        trainer('water', [{ id: 'tidewyrm', level: 42 }, { id: 'maelvon', level: 44 }]),
+        trainer('poison', [{ id: 'venomdash', level: 44 }, { id: 'sludgewall', level: 44 }]),
+      ],
+      leader: {
+        name: 'Nim', types: ['water', 'poison'],
+        creatures: [{ id: 'tidewyrm', level: 46 }, { id: 'venomdash', level: 46 }, { id: 'shellbastion', level: 46 }],
+        preBattleDialogue: 'The fog keeps old secrets. Show me you can see through it.',
+        postDefeatDialogue: 'You can pass. The stones further in are not mine to guard.',
+        teamSize: 3,
+      },
+    },
+  ],
+  rival: {
+    id: 'rival5', zone: 'zone5', level: 48, teamSize: 4,
+    aiConfig: { optimalChance: 0.95, switchBehavior: 'proactive', teamBuild: 'optimized' },
+    preBattleDialogue: 'I got here first. Again. The fog does not scare me.',
+    postDefeatDialogue: 'Fine. The next island is hotter. Do not fall behind.',
+    reward: 'mistChart',
+    rewardTitle: 'A CLEARER CHART',
+    rewardDescription: 'The fog thins. Ashwake is on the map for real.',
+  },
+}
+
+// ============================================================
+// ZONE 6 — ASHWAKE
+// ============================================================
+const ZONE_6 = {
+  id: 'zone6',
+  name: 'Ashwake',
+  description: 'Warm ash and the last gym before the champion.',
+  levelRange: [46, 50],
+  trainersPerGym: 2,
+  aiConfig: { optimalChance: 0.9, switchBehavior: 'smart', teamBuild: 'optimized' },
+  leaderAiConfig: { optimalChance: 1, switchBehavior: 'proactive', teamBuild: 'optimized' },
+  maxTeamSize: 4,
+  gyms: [
+    {
+      id: 'z6g1', name: 'Cinder Gym', zone: 'zone6',
+      types: ['fire', 'electric'],
+      badge: { name: 'Cinder Badge', icon: '🔥' },
+      trainers: [
+        trainer('fire', [{ id: 'solmane', level: 46 }, { id: 'pyrexis', level: 48 }]),
+        trainer('electric', [{ id: 'stormlash', level: 48 }, { id: 'nyxbolt', level: 48 }]),
+      ],
+      leader: {
+        name: 'Ash', types: ['fire', 'electric'],
+        creatures: [{ id: 'solmane', level: 49 }, { id: 'stormlash', level: 49 }, { id: 'pyrexis', level: 50 }],
+        preBattleDialogue: 'The ash is warm because something under it is still awake.',
+        postDefeatDialogue: 'Go on. Crownrest is the last sail. The champion is waiting.',
+        teamSize: 3,
+      },
+    },
+  ],
+  rival: {
+    id: 'rival6', zone: 'zone6', level: 50, teamSize: 4,
+    aiConfig: { optimalChance: 1, switchBehavior: 'proactive', teamBuild: 'optimized' },
+    preBattleDialogue: 'Last warm-up. After this, we both go to the champion.',
+    postDefeatDialogue: 'I will be in the stands. Win it.',
+    reward: 'ashChart',
+    rewardTitle: 'THE LAST CROSSING',
+    rewardDescription: 'Crownrest will take you, once the Scoop Squad is done digging.',
+  },
+}
+
+export const ZONES = [ZONE_1, ZONE_2, ZONE_3, ZONE_4, ZONE_5, ZONE_6]
 
 export const ALL_GYMS = ZONES.flatMap(z => z.gyms)
 

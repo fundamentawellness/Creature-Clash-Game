@@ -45,7 +45,7 @@ export const ISLANDS = [
     id: 'ironspire',
     zoneId: 'zone4',
     name: 'Ironspire',
-    blurb: 'The last charted peak. Champion is close.',
+    blurb: 'A hot peak with a sealed door.',
     theme: 'Peak island',
     color: '#fc8181',
     charted: true,
@@ -56,23 +56,42 @@ export const ISLANDS = [
   },
   {
     id: 'mistveil',
-    zoneId: null,
+    zoneId: 'zone5',
     name: 'Mistveil',
-    blurb: 'Fog on the chart. Nobody has sailed this far.',
-    theme: 'Uncharted',
-    color: '#94a3b8',
-    charted: false,
-    wilds: [],
+    blurb: 'Fog, ruins, and a clue in the stones.',
+    theme: 'Ruin island',
+    color: '#9f7aea',
+    charted: true,
+    wilds: [
+      { id: 'veil-pool', name: 'Veil Pools', types: ['water', 'poison'], min: 40, max: 46 },
+      { id: 'ruin-walk', name: 'Ruin Walk', types: ['grass', 'water'], min: 42, max: 46 },
+    ],
   },
   {
     id: 'ashwake',
-    zoneId: null,
+    zoneId: 'zone6',
     name: 'Ashwake',
-    blurb: 'A rumor of fire beyond the fog.',
-    theme: 'Uncharted',
-    color: '#64748b',
-    charted: false,
-    wilds: [],
+    blurb: 'Warm ash. The digging crew makes its stand.',
+    theme: 'Ash island',
+    color: '#ed8936',
+    charted: true,
+    wilds: [
+      { id: 'ash-field', name: 'Ash Field', types: ['fire', 'ground'], min: 44, max: 49 },
+      { id: 'spark-dunes', name: 'Spark Dunes', types: ['electric', 'fire'], min: 46, max: 50 },
+    ],
+  },
+  {
+    id: 'crownrest',
+    zoneId: null,
+    name: 'Crownrest',
+    blurb: 'The champion, and three empty pedestals.',
+    theme: 'Champion island',
+    color: '#f6e05e',
+    charted: true,
+    champion: true,
+    wilds: [
+      { id: 'crown-green', name: 'Champion Green', types: ['grass', 'electric'], min: 46, max: 50 },
+    ],
   },
 ]
 
@@ -84,7 +103,7 @@ export const SHOP = [
 ]
 
 /** Beating these gyms, in order, earns the boat to the next island. */
-export const BOAT_GYMS = ['z1g1', 'z2g1', 'z3g1']
+export const BOAT_GYMS = ['z1g1', 'z2g1', 'z3g1', 'z4g1', 'z5g1', 'z6g1']
 
 export function islandById(id) {
   return ISLANDS.find(island => island.id === id) || ISLANDS[0]

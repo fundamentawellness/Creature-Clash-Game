@@ -200,7 +200,7 @@ localStorage.setItem('battle-arena-save', JSON.stringify({
   battlesWon: 9,
 }))
 const fromV1 = loadProfiles()
-assert.equal(fromV1.slots[0].save.version, 4)
+assert.equal(fromV1.slots[0].save.version, 5)
 assert.equal(fromV1.slots[0].save.rewards.creatureForge, true)
 assert.equal(fromV1.slots[0].name, 'Player 1')
 assert.equal(fromV1.slots[1].save, null)

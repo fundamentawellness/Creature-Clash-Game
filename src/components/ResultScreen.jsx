@@ -4,6 +4,7 @@ import { TYPE_COLORS } from '../data/types.js'
 import { addXp, xpFromFoe, getAvailableNewMove, learnMove, skipMove, levelForNewUnlock } from '../systems/progression.js'
 import { evolveIfReady, replaceCreatureId } from '../systems/evolution.js'
 import { addCaught, coinsForWin } from '../systems/world.js'
+import { markCrewDefeated, markEliteBeaten, markChampion } from '../systems/story.js'
 import { itemRewardForBattle, addItem, ITEMS } from '../data/items.js'
 import EvolutionModal from './EvolutionModal.jsx'
 import { advanceCampaign, trackPlayerTypes, applyRivalReward } from '../systems/campaignManager.js'
@@ -64,6 +65,9 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
         ? `${result.caught.name} is already in your collection. +25 coins.`
         : `${result.caught.name} was caught!`)
     }
+    if (battleInfo?.crewId) updatedState = markCrewDefeated(updatedState, battleInfo.crewId)
+    if (battleInfo?.eliteId) updatedState = markEliteBeaten(updatedState, battleInfo.eliteId)
+    if (battleInfo?.champion) updatedState = markChampion(updatedState, !!battleInfo.rematch)
     const coins = coinsForWin(battleInfo, !!result?.caught)
     if (coins) {
       updatedState.coins = (updatedState.coins || 0) + coins

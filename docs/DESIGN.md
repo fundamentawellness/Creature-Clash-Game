@@ -103,18 +103,27 @@ Each phase should be playable before the next one starts. A kid should be able t
 
 ### Phase 4 — The full story
 
-**Goal.** Tell the whole island story: the digging crew, the mystery, and the climb to champion, across the full chain.
+**This phase is in the game.** The fog is gone. You can sail the whole chain and, if you keep going, become champion.
 
-**What you can play.** Start on the first island and, if you keep going, finish as champion. Gyms are places you travel to. The rival and the villain crew show up more than once. The ending pays off the ancient secret.
+**The chain.** Greenridge, Cragmoor, Stormreach, Ironspire, Mistveil, Ashwake, and Crownrest. Mistveil and Ashwake each have wild patches, a gym, a rival, and a shop. Crownrest is the champion island. You still earn each crossing by beating the first gym on the island you are leaving, or by swimming with a level 10 water creature. New gyms sit in the high 40s. The champion's team is level 50.
 
-**Features.**
+**The story.** Three threads, told in short scenes you can skip:
 
-- Story scenes between gyms, not only one line before a leader.
-- The rest of the islands, each with wild creatures and a gym, using the same "earn the crossing" rule.
-- A champion fight, and a clear "you did it" ending. The game already has a champion flag that turns on when the Forge unlocks, after the last rival. The real champion should be a fight and a story moment, not only a checkbox.
-- The four current zones are the model for gym structure: trainers, a typed leader, a badge, then a rival. Later islands can follow that rhythm so the campaign code does not need a second system.
+- The **Scoop Squad**, a digging crew that is mischievous rather than scary. Digger Dot, Shovel Sid, and Captain Scoop show up and battle you. They want to poke a sleeping heart under the islands.
+- The **mystery**. Stones and ruins say the islands were once one land, kept apart by a heart that should stay asleep.
+- The **champion climb**. After the Ashwake rival and Captain Scoop, three wardens and then Champion Lumen wait on Crownrest. Your rival keeps turning up along the way.
 
-**Notes.** Dialogue today is short strings on each leader and rival in `src/data/campaign.js`. A longer story wants a simple scene list (who talks, what they say, which picture) rather than more fields buried on the gym. The static site that hosts the game does not need to change for this phase. It is still one player on one device.
+Scenes live in `src/data/story.js`. A portrait is a simple face, not a new painting. Winning a crew, warden, or champion fight is recorded on the save.
+
+**After the ending.** You can rematch Champion Lumen. Three pedestals on Crownrest stay empty on purpose.
+
+**Legendary slots, for later.** These are not creatures you can catch yet. They are reserved for creatures the kids invent:
+
+1. **Heart of the Chain** (Crownrest). The sleeping heart under the islands.
+2. **The Sleeper** (Mistveil). Something in the deep fog that has not woken up.
+3. **Ashwake's Last Spark** (Ashwake). A spark in the ash that never went out.
+
+**Saves.** Version 5. Older saves gain an empty story log and keep their roster, bag, and badges. Other kids' slots stay separate.
 
 ### Phase 5 — Battles between devices
 
