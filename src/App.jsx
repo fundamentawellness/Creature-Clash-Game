@@ -16,6 +16,10 @@ import MoveTutorScreen from './components/MoveTutorScreen.jsx'
 import CreaturePickModal from './components/CreaturePickModal.jsx'
 import ProfilePicker from './components/ProfilePicker.jsx'
 import BagScreen from './components/BagScreen.jsx'
+import IslandMapScreen from './components/IslandMapScreen.jsx'
+import IslandScreen from './components/IslandScreen.jsx'
+import CollectionBookScreen from './components/CollectionBookScreen.jsx'
+import { markSeen, buyItem } from './systems/world.js'
 import { getNextReplayBattle } from './systems/campaignManager.js'
 
 // Error boundary to prevent crashes from losing save data
@@ -67,7 +71,8 @@ function App() {
   const [transitioning, setTransitioning] = useState(false)
   const [dialogue, setDialogue] = useState(null) // { speakerName, text, onDismiss }
   const [creaturePick, setCreaturePick] = useState(null) // { creatureIds, onPick }
-  const [rewardSplash, setRewardSplash] = useState(null) // { title, description }
+  const [rewardSplash, setRewardSplash] = useState(null)
+  const [currentIsland, setCurrentIsland] = useState('greenridge') // { title, description }
 
   // Write the active player's latest game into their slot. This only touches
   // storage; React state is updated by the handlers that change the game.
@@ -140,7 +145,7 @@ function App() {
 
   const handleContinue = useCallback(() => {
     if (gameState?.campaign?.playerName) {
-      transitionTo('campaignMap')
+      transitionTo('world')
     } else {
       transitionTo('teamSelect')
     }
@@ -149,7 +154,7 @@ function App() {
   const handleImportComplete = useCallback((imported) => {
     setGameState(imported)
     if (imported?.campaign?.playerName) {
-      transitionTo('campaignMap')
+      transitionTo('world')
     } else {
       transitionTo('teamSelect')
     }
@@ -163,7 +168,7 @@ function App() {
     if (!gameState?.campaign?.playerName) {
       transitionTo('nameEntry')
     } else {
-      transitionTo('campaignMap')
+      transitionTo('world')
     }
   }, [transitionTo, gameState])
 
@@ -172,12 +177,16 @@ function App() {
       ...prev,
       campaign: { ...prev.campaign, playerName, rivalName },
     }))
-    transitionTo('campaignMap')
+    transitionTo('world')
   }, [transitionTo])
 
   // ===== CAMPAIGN MAP =====
 
   const handleSelectBattle = useCallback((battleInfo) => {
+    setGameState(prev => markSeen(prev, [
+      ...(prev?.lastTeam || []),
+      ...(battleInfo?.aiTeamSpec || []).map(spec => spec.id),
+    ]))
     setCurrentBattleInfo(battleInfo)
     setBattleResult(null)
     setBattleKey(k => k + 1)
@@ -235,7 +244,7 @@ function App() {
     if (currentBattleInfo?.replay) {
       const nextReplay = getNextReplayBattle(currentBattleInfo)
       if (!nextReplay) {
-        transitionTo('campaignMap')
+        transitionTo('world')
         return
       }
       beginBattle(nextReplay)
@@ -245,7 +254,7 @@ function App() {
     // Get the next battle from the updated campaign state
     const campaign = gameState?.campaign
     if (!campaign) {
-      transitionTo('campaignMap')
+      transitionTo('world')
       return
     }
 
@@ -253,7 +262,7 @@ function App() {
 
     if (!next) {
       // Campaign complete or no next battle
-      transitionTo('campaignMap')
+      transitionTo('world')
       return
     }
 
@@ -310,7 +319,7 @@ function App() {
     }
 
     if (!battleInfo) {
-      transitionTo('campaignMap')
+      transitionTo('world')
       return
     }
 
@@ -378,7 +387,7 @@ function App() {
             lastTeam={gameState?.lastTeam || []}
             teamSize={gameState?.teamSize || 3}
             onConfirm={handleTeamConfirm}
-            onBack={() => gameState?.campaign?.playerName ? transitionTo('campaignMap') : transitionTo('title')}
+            onBack={() => gameState?.campaign?.playerName ? transitionTo('world') : transitionTo('title')}
             onUpdateGameState={handleUpdateGameState}
           />
         )
@@ -388,6 +397,36 @@ function App() {
             initialPlayerName={profiles?.slots?.[activeSlot]?.name || ''}
             onConfirm={handleNameConfirm}
             onBack={() => transitionTo('teamSelect')}
+          />
+        )
+      case 'world':
+        return (
+          <IslandMapScreen
+            gameState={gameState}
+            onOpenIsland={(id) => { setCurrentIsland(id); transitionTo('island') }}
+            onBook={() => transitionTo('book')}
+            onBag={() => transitionTo('bag')}
+            onTeam={() => transitionTo('teamSelect')}
+            onBadges={() => transitionTo('badges')}
+            onMenu={() => transitionTo('title')}
+          />
+        )
+      case 'island':
+        return (
+          <IslandScreen
+            islandId={currentIsland}
+            gameState={gameState}
+            onWild={(info) => { setGameState(prev => markSeen(prev, (info.aiTeamSpec || []).map(spec => spec.id))); handleSelectBattle(info) }}
+            onSelectBattle={handleSelectBattle}
+            onBack={() => transitionTo('world')}
+            onShopBuy={(itemId, price) => handleUpdateGameState(prev => buyItem(prev, itemId, price))}
+          />
+        )
+      case 'book':
+        return (
+          <CollectionBookScreen
+            gameState={gameState}
+            onBack={() => transitionTo('world')}
           />
         )
       case 'campaignMap':
@@ -407,14 +446,14 @@ function App() {
           <BagScreen
             gameState={gameState}
             onUpdateGameState={handleUpdateGameState}
-            onBack={() => transitionTo('campaignMap')}
+            onBack={() => transitionTo('world')}
           />
         )
       case 'badges':
         return (
           <BadgeCollectionScreen
             gameState={gameState}
-            onBack={() => transitionTo('campaignMap')}
+            onBack={() => transitionTo('world')}
           />
         )
       case 'moveTutor':
@@ -422,7 +461,7 @@ function App() {
           <MoveTutorScreen
             gameState={gameState}
             onUpdateGameState={handleUpdateGameState}
-            onBack={() => transitionTo('campaignMap')}
+            onBack={() => transitionTo('world')}
           />
         )
       case 'battle':
@@ -434,6 +473,7 @@ function App() {
             battleInfo={currentBattleInfo}
             onBattleEnd={handleBattleEnd}
             onUpdateGameState={handleUpdateGameState}
+            onMarkSeen={(ids) => handleUpdateGameState(prev => markSeen(prev, ids))}
           />
         )
       case 'result':
@@ -446,7 +486,7 @@ function App() {
             onUpdateGameState={handleUpdateGameState}
             onBattleAgain={handleBattleAgain}
             onChangeTeam={() => transitionTo('teamSelect')}
-            onMainMenu={() => transitionTo('campaignMap')}
+            onMainMenu={() => transitionTo('world')}
             onShowDialogue={(d) => setDialogue(d)}
             onShowCreaturePick={(p) => setCreaturePick(p)}
             onShowRewardSplash={(r) => setRewardSplash(r)}

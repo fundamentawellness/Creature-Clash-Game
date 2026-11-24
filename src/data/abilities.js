@@ -2,7 +2,7 @@
 
 export const ABILITIES = {
   ember_heart: { id: 'ember_heart', name: 'Ember Heart', desc: 'Fire moves hit harder when HP is low.', pinch: 'fire' },
-  tidewell: { id: 'tidewell', name: 'Tidewell', desc: 'Water moves hit harder when HP is low.', pinch: 'water' },
+  tidewell: { id: 'tidewell', name: 'Tidewell', desc: 'Water moves hit harder when HP is low. From level 10, can swim you to the next island.', pinch: 'water', ferries: true },
   deep_roots: { id: 'deep_roots', name: 'Deep Roots', desc: 'Grass moves hit harder when HP is low.', pinch: 'grass' },
   storm_cell: { id: 'storm_cell', name: 'Storm Cell', desc: 'Electric moves hit harder when HP is low.', pinch: 'electric' },
   stone_skin: { id: 'stone_skin', name: 'Stone Skin', desc: 'Takes less damage from physical hits.', guard: 'physical' },

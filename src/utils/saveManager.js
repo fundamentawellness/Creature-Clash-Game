@@ -7,7 +7,7 @@ import { evolveIfReady, replaceCreatureId } from '../systems/evolution.js'
 
 const LEGACY_SAVE_KEY = 'battle-arena-save'
 const PROFILE_KEY = 'battle-arena-profiles'
-const CURRENT_VERSION = 3
+const CURRENT_VERSION = 4
 const PROFILE_VERSION = 1
 
 export const SLOT_COUNT = 4
@@ -71,6 +71,10 @@ export function getDefaultSave() {
     customCreatures: [],
     customTypes: [],
     bag: emptyBag(),
+    coins: 0,
+    caughtIds: [...STARTER_CREATURE_IDS],
+    seenIds: [...STARTER_CREATURE_IDS],
+    currentIsland: 'greenridge',
   }
 }
 
@@ -197,6 +201,27 @@ function migrateSave(data) {
     if (!state.bag) state.bag = emptyBag()
     if (notes.length) state.growthNotes = notes
     migrated = state
+  }
+
+  // v3 → v4: the roster you already own is caught, and you can sail
+  if (!migrated.version || migrated.version < 4) {
+    const unlocked = migrated.unlockedCreatureIds || []
+    const seen = new Set(unlocked)
+    for (const id of unlocked) {
+      let cursor = CREATURES[id]?.prevolution
+      const guard = new Set()
+      while (cursor && !guard.has(cursor)) {
+        guard.add(cursor)
+        seen.add(cursor)
+        cursor = CREATURES[cursor]?.prevolution
+      }
+    }
+    migrated.caughtIds = [...unlocked]
+    migrated.seenIds = [...seen]
+    migrated.coins = typeof migrated.coins === 'number' ? migrated.coins : (migrated.campaign?.badges?.length || 0) * 40
+    migrated.currentIsland = migrated.currentIsland || 'greenridge'
+    if (!migrated.bag) migrated.bag = emptyBag()
+    else if (!migrated.bag.lure_orb) migrated.bag = { ...migrated.bag, lure_orb: 5 }
   }
 
   // Ensure all expected fields exist with defaults

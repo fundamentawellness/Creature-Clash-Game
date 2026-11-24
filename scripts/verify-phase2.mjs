@@ -142,7 +142,7 @@ const profiles = {
 }
 writeProfiles(profiles)
 const loaded = loadProfiles()
-assert.equal(loaded.slots[0].save.version, 3)
+assert.equal(loaded.slots[0].save.version, 4)
 const samEmber = Object.values(loaded.slots[0].save.creatureProgress).find(progress => progress.level === mapLegacyLevel(12) || CREATURES[progress.id]?.baseId === 'emberpaw')
 const emberProgress = loaded.slots[0].save.creatureProgress.solmane || loaded.slots[0].save.creatureProgress.emberfang || loaded.slots[0].save.creatureProgress.emberpaw
 assert.ok(emberProgress)

@@ -21,7 +21,9 @@ export default function BattleControls({
   typeColors,
   typeNames,
   bag = {},
+  wild = false,
   onAttack,
+  onCatch,
   onUseItem,
   onRequestSwitch,
   onCancelSwitch,
@@ -42,6 +44,25 @@ export default function BattleControls({
 
       {mode === 'move' && (
         <>
+          {wild && !itemPick && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {['lure_orb', 'sturdy_orb'].map((id) => {
+                const count = bag?.[id] || 0
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    disabled={count <= 0}
+                    onClick={() => onCatch?.(id)}
+                    className="min-h-14 rounded-xl px-3 py-2 text-left bg-cyan-950/60 border border-cyan-600/50 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed active:bg-cyan-900/50"
+                  >
+                    <span className="font-ui text-base font-bold text-cyan-100">Throw {ITEMS[id]?.name} ×{count}</span>
+                    <span className="block font-ui text-sm text-cyan-200/80">{ITEMS[id]?.desc}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
           {!itemPick && <div className="grid grid-cols-2 gap-2">
             {(controls.moves || []).map((moveId) => {
               const move = MOVES[moveId]
