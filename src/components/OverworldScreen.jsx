@@ -82,12 +82,19 @@ export default function OverworldScreen({ gameState, onUpdate, onBattle, onBag, 
       init() { super.init(boot) }
     }
 
-    const rect = host.getBoundingClientRect()
+    const viewSize = () => {
+      const box = host.getBoundingClientRect()
+      return {
+        width: Math.max(2, Math.floor(box.width || host.clientWidth || 2)),
+        height: Math.max(2, Math.floor(box.height || host.clientHeight || 2)),
+      }
+    }
+    const first = viewSize()
     const game = new Phaser.Game({
       type: Phaser.CANVAS,
       parent: host,
-      width: Math.max(320, Math.floor(rect.width || 480)),
-      height: Math.max(240, Math.floor(rect.height || 320)),
+      width: first.width,
+      height: first.height,
       backgroundColor: '#14301f',
       pixelArt: true,
       scale: { mode: Phaser.Scale.RESIZE },
@@ -96,16 +103,38 @@ export default function OverworldScreen({ gameState, onUpdate, onBattle, onBag, 
       render: { pixelArt: true, antialias: false },
     })
 
+    const fit = () => {
+      const next = viewSize()
+      if (next.width < 2 || next.height < 2) return
+      if (game.scale.width === next.width && game.scale.height === next.height) return
+      game.scale.resize(next.width, next.height)
+      game.scale.refresh()
+    }
+    const observer = new ResizeObserver(fit)
+    observer.observe(host)
+    window.addEventListener('resize', fit)
+    window.visualViewport?.addEventListener('resize', fit)
+    window.visualViewport?.addEventListener('scroll', fit)
+    const kick = requestAnimationFrame(() => requestAnimationFrame(fit))
+    const later = window.setTimeout(fit, 250)
+
     const poll = setInterval(() => {
       const scene = game.scene.getScene('OverworldScene')
       if (scene) {
         sceneRef.current = scene
         clearInterval(poll)
+        fit()
       }
     }, 40)
 
     return () => {
       clearInterval(poll)
+      cancelAnimationFrame(kick)
+      window.clearTimeout(later)
+      observer.disconnect()
+      window.removeEventListener('resize', fit)
+      window.visualViewport?.removeEventListener('resize', fit)
+      window.visualViewport?.removeEventListener('scroll', fit)
       sceneRef.current = null
       game.destroy(true)
     }
@@ -206,7 +235,7 @@ export default function OverworldScreen({ gameState, onUpdate, onBattle, onBag, 
   const stick = (x, y) => sceneRef.current?.setStick(x, y)
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-slate-950">
+    <div className="relative flex min-h-0 w-full flex-col bg-slate-950" style={{ height: '100dvh', maxHeight: '100dvh' }}>
       <div className="flex items-center justify-between gap-2 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2">
         <div>
           <p className="font-game text-lg text-emerald-200">{zone}</p>
@@ -220,7 +249,7 @@ export default function OverworldScreen({ gameState, onUpdate, onBattle, onBag, 
         </div>
       </div>
       {note && <p className="font-ui text-center text-amber-200 px-3">{note}</p>}
-      <div ref={hostRef} className="flex-1 w-full min-h-[240px]" />
+      <div ref={hostRef} className="relative min-h-0 w-full flex-1 overflow-hidden" />
       <div className="pointer-events-none absolute inset-0">
         <div className="pointer-events-auto absolute left-3 bottom-[max(1rem,env(safe-area-inset-bottom))] grid grid-cols-3 gap-1 w-36">
           <span />
