@@ -139,7 +139,7 @@ Scenes live in `src/data/story.js`. A portrait is a simple face, not a new paint
 
 **This phase is in the game.** The adventure from the first screen through the champion is the game you play now. Sound and the three legendary pedestals are ready. The kids have not designed those creatures yet, so the pedestals stay hidden until a parent fills them in.
 
-**Sound.** Music and effects are generated in the browser. There are no recorded tracks and nothing to license. The map, a battle, and Crownrest each have a short tune. Effects cover a move's type, a hit, a miss, a status, a catch, a level up, an evolution, and menu taps. Settings has music, effects, mute, and Play a note. The choice is saved with that player's file. On a phone the music starts off, so opening the game in a quiet room stays quiet. Nothing plays until the first tap, which is what phones require.
+**Sound.** Two original songs, Voyage for the map and menus and Clash for battles, play as continuous loops. Effects sit on a separate volume, so a move or a tap does not restart the song. The song only changes when you go between the map and a battle, with a short fade. Details and the license note are in `docs/AUDIO.md`. Settings still saves music, effects, and mute for each player. On a phone the music starts off. Nothing plays until the first tap.
 
 **The pedestals.** Heart of the Chain, The Sleeper, and Ashwake's Last Spark live in `src/data/legendaries.js`. Each one has a name, type, stats, moves, ability, optional art, and the island where it appears after the champion fight. `ready` is false, so they are not in the collection and cannot be caught. Setting `ready` to true, after the fields are filled in, wakes that pedestal. `docs/ADD_A_CREATURE.md` is the short guide for doing that with the kids. The Forge is still the toy for extra creatures. Promoting one onto a pedestal is a deliberate edit.
 
@@ -151,7 +151,7 @@ Scenes live in `src/data/story.js`. A portrait is a simple face, not a new paint
 
 **A new game.** You name yourself, then you are in town. Professor Fern asks you to pick three creatures from seven level-5 starters, one of each type: Emberpaw, Aquafin, Leafyn, Voltzap, Pebblit, Dustail, and Venomaw. You do not receive a full team. Everything else is caught in the wild. A save that already had creatures keeps them and skips the table.
 
-**What you can walk.** Town, the meadow route, Fern Forest, Shell Beach, and Pebble Cave. Arrow keys or W A S D move. A finger pad and an A button work on a phone or an iPad. The camera follows. Trees, walls, water, and people block the way.
+**What you can walk.** Town, the meadow route, Fern Forest, Shell Beach, and Pebble Cave. Arrow keys or W A S D move. A finger pad and an A button work on a phone or an iPad. The camera follows. Trees, walls, water, and people block the way. Voyage keeps playing while you walk. A wild battle or a trainer fades into Clash, then Voyage returns when you are back on the path. Steps and sound effects do not start the song over.
 
 **Zones.** Each wild place has its own creatures, including one rare:
 - Meadow Route, rare Voltzap

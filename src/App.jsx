@@ -88,12 +88,15 @@ function App() {
   useEffect(() => {
     if (gameState?.settings) applyAudioSettings(gameState.settings)
   }, [gameState?.settings])
+  const musicMode = screen === 'battle'
+    ? (currentBattleInfo?.type === 'champion' ? 'champion' : 'battle')
+    : (screen === 'island' && currentIsland === 'crownrest' ? 'champion' : 'map')
   useEffect(() => {
-    if (screen === 'battle') startMusic(currentBattleInfo?.type === 'champion' ? 'champion' : 'battle')
-    else if (screen === 'island' && currentIsland === 'crownrest') startMusic('champion')
-    else if (screen === 'profiles') startMusic('map')
-    else startMusic('map')
-  }, [screen, currentIsland, currentBattleInfo])
+    // Voyage on the island, the chart, and menus. Clash in every battle,
+    // including wild fights and trainers. The same song keeps playing
+    // through steps and sound effects.
+    startMusic(musicMode)
+  }, [musicMode])
 
   useEffect(() => {
     if (!profiles || activeSlot == null || !gameState) return
