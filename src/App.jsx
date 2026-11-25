@@ -22,6 +22,7 @@ import CollectionBookScreen from './components/CollectionBookScreen.jsx'
 import { markSeen, buyItem } from './systems/world.js'
 import { pendingScene, markSceneSeen } from './systems/story.js'
 import StoryScene from './components/StoryScene.jsx'
+import OverworldScreen from './components/OverworldScreen.jsx'
 import OnlineMatch from './components/OnlineMatch.jsx'
 import { applyAudioSettings, installAudio, startMusic } from './audio/sound.js'
 import { getNextReplayBattle } from './systems/campaignManager.js'
@@ -78,6 +79,8 @@ function App() {
   const [rewardSplash, setRewardSplash] = useState(null)
   const [currentIsland, setCurrentIsland] = useState('greenridge')
   const afterTeam = useRef(null) // { title, description }
+  const menuHome = useRef('world')
+  const [meetStory, setMeetStory] = useState(false)
 
   // Write the active player's latest game into their slot. This only touches
   // storage; React state is updated by the handlers that change the game.
@@ -85,12 +88,15 @@ function App() {
   useEffect(() => {
     if (gameState?.settings) applyAudioSettings(gameState.settings)
   }, [gameState?.settings])
+  const musicMode = screen === 'battle'
+    ? (currentBattleInfo?.type === 'champion' ? 'champion' : 'battle')
+    : (screen === 'island' && currentIsland === 'crownrest' ? 'champion' : 'map')
   useEffect(() => {
-    if (screen === 'battle') startMusic(currentBattleInfo?.type === 'champion' ? 'champion' : 'battle')
-    else if (screen === 'island' && currentIsland === 'crownrest') startMusic('champion')
-    else if (screen === 'profiles') startMusic('map')
-    else startMusic('map')
-  }, [screen, currentIsland, currentBattleInfo])
+    // Voyage on the island, the chart, and menus. Clash in every battle,
+    // including wild fights and trainers. The same song keeps playing
+    // through steps and sound effects.
+    startMusic(musicMode)
+  }, [musicMode])
 
   useEffect(() => {
     if (!profiles || activeSlot == null || !gameState) return
@@ -119,7 +125,8 @@ function App() {
 
   const handleNewGame = useCallback(() => {
     setGameState(getDefaultSave())
-    transitionTo('teamSelect')
+    setMeetStory(false)
+    transitionTo('nameEntry')
   }, [transitionTo])
 
   const handlePlaySlot = useCallback((index) => {
@@ -138,7 +145,8 @@ function App() {
     })
     setActiveSlot(index)
     setGameState(getDefaultSave())
-    setScreen('teamSelect')
+    setMeetStory(false)
+    setScreen('nameEntry')
   }, [commitProfiles])
 
   const handleUpdateSlot = useCallback((index, meta) => {
@@ -161,18 +169,19 @@ function App() {
 
   const handleContinue = useCallback(() => {
     if (gameState?.campaign?.playerName) {
-      transitionTo('world')
+      if (gameState.startersChosen) setMeetStory(true)
+      transitionTo('overworld')
     } else {
-      transitionTo('teamSelect')
+      transitionTo('nameEntry')
     }
   }, [transitionTo, gameState])
 
   const handleImportComplete = useCallback((imported) => {
     setGameState(imported)
     if (imported?.campaign?.playerName) {
-      transitionTo('world')
+      transitionTo('overworld')
     } else {
-      transitionTo('teamSelect')
+      transitionTo('nameEntry')
     }
   }, [transitionTo])
 
@@ -188,7 +197,7 @@ function App() {
       afterTeam.current = null
       transitionTo(next)
     } else {
-      transitionTo('world')
+      transitionTo(menuHome.current || 'world')
     }
   }, [transitionTo, gameState])
 
@@ -197,7 +206,7 @@ function App() {
       ...prev,
       campaign: { ...prev.campaign, playerName, rivalName },
     }))
-    transitionTo('world')
+    transitionTo('overworld')
   }, [transitionTo])
 
   // ===== CAMPAIGN MAP =====
@@ -258,23 +267,24 @@ function App() {
 
   const handleBattleAgain = useCallback(() => {
     setBattleResult(null)
+    const home = currentBattleInfo?.fromOverworld ? 'overworld' : 'world'
 
     // A gym replay walks every trainer, then the leader, and does not jump
     // back to the unfinished campaign fight.
     if (currentBattleInfo?.replay) {
       const nextReplay = getNextReplayBattle(currentBattleInfo)
       if (!nextReplay) {
-        transitionTo('world')
+        transitionTo(home)
         return
       }
-      beginBattle(nextReplay)
+      beginBattle({ ...nextReplay, fromOverworld: !!currentBattleInfo?.fromOverworld })
       return
     }
 
     // Get the next battle from the updated campaign state
     const campaign = gameState?.campaign
     if (!campaign) {
-      transitionTo('world')
+      transitionTo(home)
       return
     }
 
@@ -282,7 +292,7 @@ function App() {
 
     if (!next) {
       // Campaign complete or no next battle
-      transitionTo('world')
+      transitionTo(home)
       return
     }
 
@@ -339,11 +349,11 @@ function App() {
     }
 
     if (!battleInfo) {
-      transitionTo('world')
+      transitionTo(home)
       return
     }
 
-    beginBattle(battleInfo)
+    beginBattle({ ...battleInfo, fromOverworld: !!currentBattleInfo?.fromOverworld })
   }, [transitionTo, gameState, currentBattleInfo, beginBattle])
 
   // ===== GAME STATE UPDATE =====
@@ -416,7 +426,7 @@ function App() {
             lastTeam={gameState?.lastTeam || []}
             teamSize={gameState?.teamSize || 3}
             onConfirm={handleTeamConfirm}
-            onBack={() => gameState?.campaign?.playerName ? transitionTo('world') : transitionTo('title')}
+            onBack={() => transitionTo(gameState?.campaign?.playerName ? (menuHome.current || 'world') : 'title')}
             onUpdateGameState={handleUpdateGameState}
           />
         )
@@ -425,7 +435,7 @@ function App() {
           <NameEntryScreen
             initialPlayerName={profiles?.slots?.[activeSlot]?.name || ''}
             onConfirm={handleNameConfirm}
-            onBack={() => transitionTo('teamSelect')}
+            onBack={() => transitionTo('title')}
           />
         )
       case 'world': {
@@ -443,10 +453,18 @@ function App() {
         return (
           <IslandMapScreen
             gameState={gameState}
-            onOpenIsland={(id) => { setCurrentIsland(id); transitionTo('island') }}
-            onBook={() => transitionTo('book')}
-            onBag={() => transitionTo('bag')}
-            onTeam={() => transitionTo('teamSelect')}
+            onOpenIsland={(id) => {
+              if (id === 'greenridge') {
+                if (gameState?.startersChosen) setMeetStory(true)
+                transitionTo('overworld')
+                return
+              }
+              setCurrentIsland(id)
+              transitionTo('island')
+            }}
+            onBook={() => { menuHome.current = 'world'; transitionTo('book') }}
+            onBag={() => { menuHome.current = 'world'; transitionTo('bag') }}
+            onTeam={() => { menuHome.current = 'world'; transitionTo('teamSelect') }}
             onBadges={() => transitionTo('badges')}
             onMenu={() => transitionTo('title')}
           />
@@ -475,11 +493,26 @@ function App() {
           />
         )
       }
+      case 'overworld':
+        return (
+          <OverworldScreen
+            key={gameState?.story?.seen?.includes('greenridge') ? 'dot' : 'town'}
+            gameState={gameState}
+            onUpdate={handleUpdateGameState}
+            onBattle={handleSelectBattle}
+            onBag={() => { menuHome.current = 'overworld'; transitionTo('bag') }}
+            onTeam={() => { menuHome.current = 'overworld'; transitionTo('teamSelect') }}
+            onBook={() => { menuHome.current = 'overworld'; transitionTo('book') }}
+            onIslands={() => transitionTo('world')}
+            storyOpen={meetStory && !!(pendingScene(gameState, 'map') || pendingScene(gameState, 'greenridge'))}
+            onMeetStory={() => setMeetStory(true)}
+          />
+        )
       case 'book':
         return (
           <CollectionBookScreen
             gameState={gameState}
-            onBack={() => transitionTo('world')}
+            onBack={() => transitionTo(menuHome.current || 'world')}
           />
         )
       case 'campaignMap':
@@ -499,7 +532,7 @@ function App() {
           <BagScreen
             gameState={gameState}
             onUpdateGameState={handleUpdateGameState}
-            onBack={() => transitionTo('world')}
+            onBack={() => transitionTo(menuHome.current || 'world')}
           />
         )
       case 'badges':
@@ -539,7 +572,7 @@ function App() {
             onUpdateGameState={handleUpdateGameState}
             onBattleAgain={handleBattleAgain}
             onChangeTeam={() => transitionTo('teamSelect')}
-            onMainMenu={() => transitionTo('world')}
+            onMainMenu={() => transitionTo((gameState?.overworld?.blackout || currentBattleInfo?.fromOverworld) ? 'overworld' : 'world')}
             onShowDialogue={(d) => setDialogue(d)}
             onShowCreaturePick={(p) => setCreaturePick(p)}
             onShowRewardSplash={(r) => setRewardSplash(r)}
@@ -593,6 +626,20 @@ function App() {
             text={dialogue.text}
             onDismiss={dialogue.onDismiss}
           />
+        )}
+
+        {screen === 'overworld' && meetStory && gameState?.startersChosen && (pendingScene(gameState, 'map') || pendingScene(gameState, 'greenridge')) && (
+          <div className="fixed inset-0 z-[80] bg-slate-950 overflow-y-auto">
+            <StoryScene
+              scene={pendingScene(gameState, 'map') || pendingScene(gameState, 'greenridge')}
+              playerName={gameState?.campaign?.playerName}
+              rivalName={gameState?.campaign?.rivalName}
+              onDone={() => {
+                const scene = pendingScene(gameState, 'map') || pendingScene(gameState, 'greenridge')
+                if (scene) handleUpdateGameState(prev => markSceneSeen(prev, scene.id))
+              }}
+            />
+          </div>
         )}
 
         {/* Creature pick modal */}

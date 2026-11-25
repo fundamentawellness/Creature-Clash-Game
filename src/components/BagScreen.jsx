@@ -1,5 +1,6 @@
 import { ITEMS } from '../data/items.js'
 import { getAllCreatures } from '../utils/customData.js'
+import { applyMedicine, maxHpOf } from '../systems/field.js'
 
 export default function BagScreen({ gameState, onUpdateGameState, onBack }) {
   const bag = gameState?.bag || {}
@@ -42,7 +43,7 @@ export default function BagScreen({ gameState, onUpdateGameState, onBack }) {
         <h2 className="font-game text-xl font-bold text-slate-100">BAG</h2>
         <div className="w-16" />
       </div>
-      <p className="font-ui text-base text-slate-400 mb-4 text-center">Healing items are used in battle. Held items stay on a creature.</p>
+      <p className="font-ui text-base text-slate-400 mb-4 text-center">Potions and tonics work here and in battle. HP stays until you visit the healing center. Held items stay on a creature.</p>
 
       {entries.length === 0 && (
         <p className="font-ui text-center text-slate-500 py-8">The bag is empty. Win battles to find more.</p>
@@ -59,8 +60,28 @@ export default function BagScreen({ gameState, onUpdateGameState, onBack }) {
                   <p className="font-ui text-lg font-bold text-slate-100">{item.name} <span className="text-amber-300">×{count}</span></p>
                   <p className="font-ui text-base text-slate-400">{item.desc}</p>
                 </div>
-                <span className="font-ui text-xs uppercase tracking-wider text-slate-500">{item.kind === 'held' ? 'Hold' : 'Battle'}</span>
+                <span className="font-ui text-xs uppercase tracking-wider text-slate-500">{item.kind === 'held' ? 'Hold' : item.kind === 'heal' || item.kind === 'cure' ? 'Heal' : 'Battle'}</span>
               </div>
+              {(item.kind === 'heal' || item.kind === 'cure') && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {team.map(creature => {
+                    const progress = gameState.creatureProgress?.[creature.id]
+                    const max = maxHpOf(creature.id, progress?.level)
+                    const vital = gameState.vitals?.[creature.id]
+                    const hp = Number.isFinite(vital?.hp) ? vital.hp : max
+                    return (
+                      <button
+                        key={creature.id}
+                        type="button"
+                        onClick={() => onUpdateGameState(prev => applyMedicine(prev, id, creature.id).state)}
+                        className="rounded-xl px-3 py-2 font-ui font-bold text-sm bg-emerald-900 text-emerald-100 cursor-pointer"
+                      >
+                        Use on {creature.name} ({hp}/{max}{vital?.status ? ` · ${vital.status}` : ''})
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
               {item.kind === 'held' && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {team.map(creature => (

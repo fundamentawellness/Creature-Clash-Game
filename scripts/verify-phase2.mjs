@@ -125,8 +125,15 @@ localStorage.clear()
 const veteran = getDefaultSave()
 veteran.version = 2
 veteran.campaign.playerName = 'Sam'
-veteran.creatureProgress.emberpaw.level = 12
-veteran.creatureProgress.emberpaw.wins = 22
+veteran.unlockedCreatureIds = ['emberpaw']
+veteran.creatureProgress = {
+  emberpaw: {
+    id: 'emberpaw', level: 12, wins: 22, xp: 0,
+    currentMoves: ['flame_nip', 'scratch'],
+    learnedMoves: ['flame_nip', 'scratch'],
+    movesOffered: 2,
+  },
+}
 const other = getDefaultSave()
 other.version = 2
 other.totalBattlesWon = 3
@@ -142,7 +149,7 @@ const profiles = {
 }
 writeProfiles(profiles)
 const loaded = loadProfiles()
-assert.equal(loaded.slots[0].save.version, 6)
+assert.equal(loaded.slots[0].save.version, 7)
 const samEmber = Object.values(loaded.slots[0].save.creatureProgress).find(progress => progress.level === mapLegacyLevel(12) || CREATURES[progress.id]?.baseId === 'emberpaw')
 const emberProgress = loaded.slots[0].save.creatureProgress.solmane || loaded.slots[0].save.creatureProgress.emberfang || loaded.slots[0].save.creatureProgress.emberpaw
 assert.ok(emberProgress)

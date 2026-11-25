@@ -112,7 +112,7 @@ export function coinsForWin(battleInfo, caught) {
   if (battleInfo.type === 'wild') return caught ? 8 : 15
   if (battleInfo.type === 'leader') return 80
   if (battleInfo.type === 'rival') return 120
-  if (battleInfo.type === 'trainer') return 30
+  if (battleInfo.type === 'trainer' || battleInfo.type === 'field') return battleInfo.type === 'field' ? 25 : 30
   if (battleInfo.type === 'crew') return 40
   if (battleInfo.type === 'elite') return 100
   if (battleInfo.type === 'champion') return battleInfo.rematch ? 40 : 200

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { musicTrackFor, shouldKeepMusic } from '../src/audio/sound.js'
 
 assert.equal(musicTrackFor('map'), 'voyage')
+assert.equal(musicTrackFor('overworld'), 'voyage')
 assert.equal(musicTrackFor('profiles'), 'voyage')
 assert.equal(musicTrackFor('battle'), 'clash')
 assert.equal(musicTrackFor('champion'), 'clash')

@@ -28,10 +28,11 @@ for (const slot of LEGEND_SLOTS) {
 }
 
 const fresh = getDefaultSave()
-assert.equal(fresh.version, 6)
+assert.equal(fresh.version, 7)
 assert.equal(typeof fresh.settings.music, 'number')
 assert.equal(fresh.settings.muted, false)
-assert.equal(fresh.lastTeam.length, 3)
+assert.equal(fresh.lastTeam.length, 0)
+assert.equal(fresh.startersChosen, false)
 playCue('tap')
 
 const sample = {
@@ -59,7 +60,7 @@ const profiles = {
 }
 writeProfiles(profiles)
 const loaded = loadProfiles()
-assert.equal(loaded.slots[0].save.version, 6)
+assert.equal(loaded.slots[0].save.version, 7)
 assert.equal(typeof loaded.slots[0].save.settings.sfx, 'number')
 assert.ok(loaded.slots[0].save.story)
 assert.equal(loaded.slots[1].save, null)

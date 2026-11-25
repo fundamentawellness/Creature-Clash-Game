@@ -49,7 +49,7 @@ export default function NameEntryScreen({ onConfirm, onBack, initialPlayerName =
             className="flex-1 py-3 rounded-xl font-ui font-bold text-lg uppercase tracking-wider
               bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400
               border border-emerald-400/30 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
-            Start Campaign
+            Enter town
           </button>
         </div>
       </div>
