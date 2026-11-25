@@ -212,6 +212,8 @@ function CreatureCard({ creatureId, progress, isUnlocked, isSelected, isExpanded
 
 export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, onConfirm, onBack, onUpdateGameState }) {
   const maxTeam = teamSize || 3
+  const ownedCount = (gameState?.unlockedCreatureIds || []).length
+  const need = Math.min(maxTeam, Math.max(ownedCount, 1))
   const [selected, setSelected] = useState(() => {
     // Pre-select last team if valid
     if (lastTeam?.length >= 1 && lastTeam.length <= maxTeam && lastTeam.every(id => gameState?.unlockedCreatureIds?.includes(id))) {
@@ -259,7 +261,7 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
 
   const handleSavePreset = () => {
     const name = presetName.trim()
-    if (!name || selected.length !== maxTeam) return
+    if (!name || selected.length !== need) return
     if (onUpdateGameState) {
       onUpdateGameState(prev => {
         const existing = prev.teamPresets || []
@@ -405,7 +407,7 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
 
       {/* Enter Battle + Save Team buttons */}
       <div className="sticky bottom-0 z-20 mt-4 -mx-4 px-4 py-3 bg-[#0a0e1a]/95 backdrop-blur border-t border-slate-800 flex flex-col-reverse sm:flex-row justify-center items-stretch sm:items-center gap-3">
-        {presetsUnlocked && selected.length === maxTeam && !showSaveInput && presets.length < MAX_PRESETS && (
+        {presetsUnlocked && selected.length === need && !showSaveInput && presets.length < MAX_PRESETS && (
           <button
             onClick={() => { setShowSaveInput(true); setPresetName('') }}
             className="px-5 py-4 rounded-xl font-ui text-sm font-bold uppercase tracking-wider
@@ -444,7 +446,7 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
         )}
         <button
           onClick={() => onConfirm(selected)}
-          disabled={selected.length !== maxTeam}
+          disabled={selected.length !== need || ownedCount < 1}
           className="w-full sm:w-auto px-8 py-4 rounded-xl font-game text-lg sm:text-xl font-bold uppercase tracking-wider
             transition-all cursor-pointer
             disabled:opacity-30 disabled:cursor-not-allowed
@@ -452,7 +454,7 @@ export default function TeamSelectScreen({ gameState, lastTeam, teamSize = 3, on
             border border-amber-400/30 hover:border-amber-400/60
             shadow-lg shadow-amber-900/30 hover:shadow-amber-800/50"
         >
-          {selected.length === maxTeam ? 'Enter Battle' : `Select ${maxTeam - selected.length} more`}
+          {ownedCount < 1 ? 'Catch a creature first' : selected.length === need ? 'Save team' : `Select ${need - selected.length} more`}
         </button>
       </div>
     </div>

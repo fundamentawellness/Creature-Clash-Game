@@ -45,7 +45,7 @@ Every creature line grows. Most lines have two or three forms. Speedsters and gl
 
 Burn, poison, numb, sleep, and freeze stick around after the hit. The battle shows the word on the creature. Switching out clears it. A bag of potions and a few held items comes from winning battles. Potions are used on your turn. Held items stay on one creature.
 
-There is no overworld yet, no wild battles, and no catching. A new game starts with 10 creatures at level 5. Beating gym leaders and the first two rivals lets you pick more, until all 28 lines are unlocked. A new teammate arrives near your current progress, not at level 1. The gyms now run from about level 6 up to the low 40s, so the climb reaches the evolutions without asking anyone to grind to 50.
+A new game starts in Greenridge town. You choose three level-5 creatures from seven, one of each type, and catch everyone else. Saves from before that choice keep the creatures they already had. The walkable island, healing, and the rest of that trip are Phase 7 below.
 
 Saves live in the browser on that device (local storage). Nothing is on a server yet.
 
@@ -144,6 +144,35 @@ Scenes live in `src/data/story.js`. A portrait is a simple face, not a new paint
 **The pedestals.** Heart of the Chain, The Sleeper, and Ashwake's Last Spark live in `src/data/legendaries.js`. Each one has a name, type, stats, moves, ability, optional art, and the island where it appears after the champion fight. `ready` is false, so they are not in the collection and cannot be caught. Setting `ready` to true, after the fields are filled in, wakes that pedestal. `docs/ADD_A_CREATURE.md` is the short guide for doing that with the kids. The Forge is still the toy for extra creatures. Promoting one onto a pedestal is a deliberate edit.
 
 **Saves.** Version 6. Older saves gain sound settings and keep their creatures, story, and bag. A brand-new player still starts on Greenridge and can reach Champion Lumen by sailing the chain. The kids' site is `https://creature-clash.onrender.com`. `render.yaml` describes that static site and the free room service `creature-clash-rooms`.
+
+### Phase 7 — The starter island you can walk
+
+**This phase is in the game.** Greenridge is a place you walk, not a list of buttons. The other islands are still the chart screen until they are converted.
+
+**A new game.** You name yourself, then you are in town. Professor Fern asks you to pick three creatures from seven level-5 starters, one of each type: Emberpaw, Aquafin, Leafyn, Voltzap, Pebblit, Dustail, and Venomaw. You do not receive a full team. Everything else is caught in the wild. A save that already had creatures keeps them and skips the table.
+
+**What you can walk.** Town, the meadow route, Fern Forest, Shell Beach, and Pebble Cave. Arrow keys or W A S D move. A finger pad and an A button work on a phone or an iPad. The camera follows. Trees, walls, water, and people block the way.
+
+**Zones.** Each wild place has its own creatures, including one rare:
+- Meadow Route, rare Voltzap
+- Fern Forest, rare Blightor
+- Shell Beach, rare Torrentis
+- Pebble Cave, rare Cragmaw
+
+Tall grass and the cave can start a wild battle. Catching uses the same battle as before. When it ends, you are standing where you were.
+
+**People.** Rangers and hikers spot you and walk up for a battle. Nurse Nia heals the whole team. Mina sells items. Skipper Bram opens the island chart. Pip lost a lucky shell on the beach. Bring it back for potions and coins. Sparkles on the ground are pickups. Digger Dot, the gym leaders, and your rival are on the island once the story says they should be.
+
+**HP stays.** A potion matters, because the next battle starts at the HP you finished with. Status stays too. The bag can use a potion or a tonic between fights. A fainted creature needs Nurse Nia. If the whole team faints, you wake up in the healing center, rested.
+
+**Saves.** Version 7. The browser remembers where you are standing, which trainers you beat, which items you picked up, and Pip's shell. Older saves gain a town position and keep their team, badges, and story.
+
+**The other islands, next.** Cragmoor, Stormreach, Ironspire, Mistveil, Ashwake, and Crownrest still open as their current screens, with wild buttons, gyms, and story. Converting each one means a walkable map in place of that list, using the same save, the same HP, and the same story. Two ideas travel with that work:
+
+- Field skills. Cut clears a hedge. Surf crosses deep water (the same idea as a water creature helping you sail, brought onto the map). Rock Smash breaks a cracked boulder. A leader or a story character teaches each skill, and a new corner of the island opens. Greenridge already shows a boxed-in hedge, a deep-water sign, and a boulder so the idea is visible. They do not open yet.
+- Day and night. Greenridge tints the map from the clock on the device: afternoon is clear, evening is warm, and night is blue. Later islands will share one clock, and some creatures will appear only at night.
+
+The tile pictures are original and drawn in the game. `docs/TILES.md` says where they live.
 
 ## What we are not doing
 

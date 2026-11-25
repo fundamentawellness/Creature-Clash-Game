@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "rooms": "node server/index.js",
-    "verify": "node scripts/verify-phase1.mjs && node scripts/verify-phase2.mjs && node scripts/verify-phase3.mjs && node scripts/verify-phase4.mjs && node scripts/verify-phase5.mjs && node scripts/verify-phase6.mjs && node scripts/verify-sprite-sync.mjs"
+    "verify": "node scripts/verify-phase1.mjs && node scripts/verify-phase2.mjs && node scripts/verify-phase3.mjs && node scripts/verify-phase4.mjs && node scripts/verify-phase5.mjs && node scripts/verify-phase6.mjs && node scripts/verify-sprite-sync.mjs && node scripts/verify-phase7.mjs"
   },
   "dependencies": {
     "phaser": "^3.90.0",

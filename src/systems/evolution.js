@@ -26,8 +26,14 @@ export function replaceCreatureId(gameState, fromId, toId, progress) {
   delete creatureProgress[fromId]
   creatureProgress[toId] = { ...progress, id: toId }
   const swap = (id) => (id === fromId ? toId : id)
+  const vitals = { ...(gameState.vitals || {}) }
+  if (vitals[fromId]) {
+    vitals[toId] = vitals[fromId]
+    delete vitals[fromId]
+  }
   return {
     ...gameState,
+    vitals,
     creatureProgress,
     unlockedCreatureIds: (gameState.unlockedCreatureIds || []).map(swap),
     lastTeam: (gameState.lastTeam || []).map(swap),

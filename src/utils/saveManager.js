@@ -2,13 +2,14 @@
 import { CREATURES } from '../data/creatures.js'
 import { MOVES } from '../data/moves.js'
 import { emptyBag } from '../data/items.js'
-import { createCreatureSaveState, mapLegacyLevel, xpToReachLevel, movesKnownAtLevel } from '../systems/progression.js'
+import { mapLegacyLevel, xpToReachLevel, movesKnownAtLevel } from '../systems/progression.js'
 import { evolveIfReady, replaceCreatureId } from '../systems/evolution.js'
 import { defaultAudioSettings } from '../audio/sound.js'
+import { GREENRIDGE } from '../data/greenridgeMap.js'
 
 const LEGACY_SAVE_KEY = 'battle-arena-save'
 const PROFILE_KEY = 'battle-arena-profiles'
-const CURRENT_VERSION = 6
+const CURRENT_VERSION = 7
 const PROFILE_VERSION = 1
 
 export const SLOT_COUNT = 4
@@ -29,26 +30,16 @@ export const SLOT_AVATARS = [
   'bouldar', 'dustail', 'venomaw', 'charrok',
 ]
 
-const STARTER_CREATURE_IDS = [
-  'emberpaw', 'charrok', 'aquafin', 'shellguard', 'leafyn',
-  'thornox', 'voltzap', 'bouldar', 'dustail', 'venomaw',
-]
-
 /**
  * Create a fresh save state for a new game.
+ * A new player starts in town with no creatures until they choose three.
  */
 export function getDefaultSave() {
-  const creatureProgress = {}
-  for (const id of STARTER_CREATURE_IDS) {
-    const progress = createCreatureSaveState(id, 5)
-    if (progress) creatureProgress[id] = progress
-  }
-
   return {
     version: CURRENT_VERSION,
-    unlockedCreatureIds: [...STARTER_CREATURE_IDS],
-    creatureProgress,
-    lastTeam: [STARTER_CREATURE_IDS[0], STARTER_CREATURE_IDS[1], STARTER_CREATURE_IDS[2]],
+    unlockedCreatureIds: [],
+    creatureProgress: {},
+    lastTeam: [],
     totalBattlesWon: 0,
     campaign: {
       playerName: '',
@@ -71,10 +62,21 @@ export function getDefaultSave() {
     teamPresets: [],
     customCreatures: [],
     customTypes: [],
-    bag: emptyBag(),
+    bag: { lure_orb: 2 },
     coins: 0,
-    caughtIds: [...STARTER_CREATURE_IDS],
-    seenIds: [...STARTER_CREATURE_IDS],
+    caughtIds: [],
+    seenIds: [],
+    startersChosen: false,
+    vitals: {},
+    field: { beaten: [], picked: [], quest: 'ask' },
+    overworld: {
+      map: 'greenridge',
+      x: GREENRIDGE.spawn.x,
+      y: GREENRIDGE.spawn.y,
+      facing: GREENRIDGE.spawn.facing,
+      calm: false,
+      blackout: false,
+    },
     currentIsland: 'greenridge',
     story: { seen: [], defeated: [], elitesBeaten: [], champion: false, rematch: false },
     settings: defaultAudioSettings(),
@@ -240,6 +242,23 @@ function migrateSave(data) {
 
   if (!migrated.version || migrated.version < 6) {
     if (!migrated.settings) migrated.settings = defaultAudioSettings()
+  }
+
+  if (!migrated.version || migrated.version < 7) {
+    const owned = migrated.unlockedCreatureIds || []
+    if (typeof migrated.startersChosen !== 'boolean') migrated.startersChosen = owned.length > 0
+    if (!migrated.vitals) migrated.vitals = {}
+    if (!migrated.field) migrated.field = { beaten: [], picked: [], quest: 'ask' }
+    if (!migrated.overworld) {
+      migrated.overworld = {
+        map: 'greenridge',
+        x: GREENRIDGE.spawn.x,
+        y: GREENRIDGE.spawn.y,
+        facing: 'down',
+        calm: true,
+        blackout: false,
+      }
+    }
   }
 
   // Ensure all expected fields exist with defaults

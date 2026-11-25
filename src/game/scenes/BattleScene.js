@@ -54,7 +54,7 @@ export class BattleScene extends Phaser.Scene {
     this.typeColors = data.typeColors || null
     this.typeNames = data.typeNames || null
     this._forceSwitchDone = null
-    this.playerActiveIdx = 0
+    this.playerActiveIdx = Number.isInteger(data.playerActiveIdx) ? data.playerActiveIdx : 0
     this.aiActiveIdx = 0
     this.isAnimating = false
     this.awaitingInput = false  // true only when move buttons are showing and player can act
@@ -902,7 +902,16 @@ export class BattleScene extends Phaser.Scene {
       if (result.battleOver) {
         this.battleOver = true
         setTimeout(() => {
-          this.onBattleEnd({ won: result.winner === 'player', caught: result.caught || null })
+          this.onBattleEnd({
+            won: result.winner === 'player',
+            caught: result.caught || null,
+            party: (this.playerTeam || []).map(creature => ({
+              id: creature.id,
+              hp: creature.currentHp,
+              maxHp: creature.currentStats?.hp,
+              status: creature.status?.id || null,
+            })),
+          })
         }, 800)
         return
       }

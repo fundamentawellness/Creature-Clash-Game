@@ -4,6 +4,7 @@ import { TYPE_COLORS } from '../data/types.js'
 import { addXp, xpFromFoe, getAvailableNewMove, learnMove, skipMove, levelForNewUnlock } from '../systems/progression.js'
 import { evolveIfReady, replaceCreatureId } from '../systems/evolution.js'
 import { addCaught, coinsForWin } from '../systems/world.js'
+import { markFieldTrainer, noteBlackout, rememberParty } from '../systems/field.js'
 import { playCue } from '../audio/sound.js'
 import { markCrewDefeated, markEliteBeaten, markChampion } from '../systems/story.js'
 import { itemRewardForBattle, addItem, ITEMS } from '../data/items.js'
@@ -46,6 +47,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
           wins: gameState.creatureProgress[id]?.wins || 0,
         }
       }))
+      onUpdateGameState(prev => noteBlackout(rememberParty(prev, result?.party), result?.party))
       return
     }
 
@@ -225,6 +227,13 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
       }
     }
 
+    if (battleInfo?.fieldId) updatedState = markFieldTrainer(updatedState, battleInfo.fieldId)
+    const partyNow = (result?.party || []).map((row, index) => ({
+      ...row,
+      id: updatedState.lastTeam?.[index] || row.id,
+    }))
+    updatedState = noteBlackout(rememberParty(updatedState, partyNow), partyNow)
+
     if (results.some(entry => entry.leveledUp)) playCue('level')
     if (evoQueue.length > 0) playCue('evolve')
     setProcessedResults(results)
@@ -268,6 +277,8 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
     if (battleInfo.type === 'trainer') return `vs ${battleInfo.trainerName || 'Trainer'}`
     if (battleInfo.type === 'leader') return `vs Leader ${battleInfo.leaderName || ''}`
     if (battleInfo.type === 'rival') return `vs Rival ${gameState?.campaign?.rivalName || ''}`
+    if (battleInfo.type === 'wild') return battleInfo.areaName || 'Wild battle'
+    if (battleInfo.type === 'field') return `vs ${battleInfo.trainerName || 'Trainer'}`
     return ''
   }
 
@@ -380,7 +391,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
       <div className="flex flex-col sm:flex-row gap-3 mt-8 w-full max-w-md slide-up" style={{ animationDelay: '0.4s' }}>
         {won && (
           (battleInfo?.replay && battleInfo.type !== 'leader') ||
-          (battleInfo?.type === 'trainer' && !battleInfo?.replay)
+          (battleInfo?.type === 'trainer' && battleInfo?.gymId && !battleInfo?.replay)
         ) && (
           <button onClick={onBattleAgain}
             className="px-8 py-3 rounded-xl font-ui font-bold text-base uppercase tracking-wider
@@ -399,7 +410,9 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
           className="px-8 py-3 rounded-xl font-ui font-bold text-base uppercase tracking-wider
             bg-slate-800 hover:bg-slate-700 border border-slate-600/30
             text-slate-400 hover:text-slate-300 transition-all cursor-pointer">
-          Island Map
+          {result?.party?.length && result.party.every(row => (row.hp || 0) <= 0)
+            ? 'Healing center'
+            : battleInfo?.fromOverworld ? 'Back to the path' : 'Island Map'}
         </button>
       </div>
     </div>

@@ -15,7 +15,7 @@ const { ISLANDS } = await import('../src/data/islands.js')
 
 const fresh = getDefaultSave()
 assert.equal(canReachIsland(fresh, 0), true)
-assert.equal(canReachIsland(fresh, 1), false, 'level 5 water starters cannot sail yet')
+assert.equal(canReachIsland(fresh, 1), false, 'a new team has not sailed yet')
 assert.equal(hasFerryCreature(fresh), false)
 
 const swimmer = {
@@ -60,7 +60,9 @@ const evolvedWild = rollWild({ types: ['fire'], min: 34, max: 34 }, () => 0)
 assert.notEqual(evolvedWild.id, 'emberpaw')
 
 const owned = addCaught(fresh, 'leafyn', 8)
-assert.equal(owned.duplicate, true)
+assert.equal(owned.duplicate, false)
+const again = addCaught(owned.state, 'leafyn', 8)
+assert.equal(again.duplicate, true)
 const newbie = addCaught(fresh, 'floravine', 9)
 assert.equal(newbie.duplicate, false)
 assert.ok(newbie.state.caughtIds.includes('floravine'))
@@ -86,7 +88,7 @@ const profiles = {
 }
 writeProfiles(profiles)
 const loaded = loadProfiles()
-assert.equal(loaded.slots[0].save.version, 6)
+assert.equal(loaded.slots[0].save.version, 7)
 assert.ok(loaded.slots[0].save.caughtIds.includes('solmane'))
 assert.ok(loaded.slots[0].save.seenIds.includes('emberpaw'))
 assert.ok(loaded.slots[0].save.bag.lure_orb >= 5)

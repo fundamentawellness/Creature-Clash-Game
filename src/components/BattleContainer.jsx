@@ -103,10 +103,16 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
     // Build player team from save state
     const playerTeam = (battleInfo.playerSpecs || selectedTeam.map(id => {
       const progress = gameState.creatureProgress[id]
-      return progress ? { ...progress, id } : {
+      const spec = progress ? { ...progress, id } : {
         id, level: 1, wins: 0,
         currentMoves: allCreatures[id]?.movePool?.slice(0, 2) || [],
       }
+      const vital = gameState.vitals?.[id]
+      if (vital && Number.isFinite(vital.hp)) {
+        spec.currentHp = vital.hp
+        spec.status = vital.status || null
+      }
+      return spec
     })).map(spec => {
       return createBattleCreature(spec.id ? spec : {
         id: spec, level: 1, wins: 0,
@@ -184,14 +190,16 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
     const typeNames = getTypeNames(gameState)
     typeChartRef.current = typeChart
 
+    const playerActiveIdx = Math.max(0, playerTeam.findIndex(creature => creature.currentHp > 0))
     playerTeamRef.current = playerTeam
     aiTeamRef.current = aiTeam
-    playerActiveIdxRef.current = 0
+    playerActiveIdxRef.current = playerActiveIdx
     aiActiveIdxRef.current = 0
 
     _pendingBattleData = {
       playerTeam,
       aiTeam,
+      playerActiveIdx,
       difficulty: 'campaign', // legacy field, not used for logic
       onPlayerAction: (action) => handlePlayerAction(action),
       onBattleEnd: (result) => onBattleEndRef.current(result),

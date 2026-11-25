@@ -35,7 +35,14 @@ export function createBattleCreature(saveState, creaturesLookup) {
   }
 
   recalcCurrentStats(creature)
-  creature.currentHp = creature.currentStats.hp
+  const maxHp = creature.currentStats.hp
+  if (Number.isFinite(Number(saveState.currentHp))) {
+    creature.currentHp = Math.max(0, Math.min(maxHp, Number(saveState.currentHp)))
+  } else {
+    creature.currentHp = maxHp
+  }
+  creature.fainted = creature.currentHp <= 0
+  if (saveState.status && !creature.fainted) creature.status = makeStatus(saveState.status)
 
   return creature
 }
