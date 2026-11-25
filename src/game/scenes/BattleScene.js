@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { TYPE_COLORS } from '../../data/types.js'
 import { CREATURE_SPRITES, resolveSpriteId } from '../../data/creatureAssets.js'
+import { artId, indexAfterSwitch, shownArtId, tagArt } from '../activeCreature.js'
 import { playCue } from '../../audio/sound.js'
 
 // Layout constants
@@ -207,12 +208,15 @@ export class BattleScene extends Phaser.Scene {
     return container
   }
 
+  releaseSprite(sprite) {
+    if (!sprite) return
+    this.tweens.killTweensOf(sprite)
+    sprite.destroy()
+  }
+
   drawPlayerCreature() {
-    // Clean up old sprite
-    if (this.playerSprite) {
-      this.playerSprite.destroy()
-      this.playerSprite = null
-    }
+    this.releaseSprite(this.playerSprite)
+    this.playerSprite = null
 
     const creature = this.getPlayerCreature()
     if (!creature || creature.fainted) return
@@ -228,6 +232,7 @@ export class BattleScene extends Phaser.Scene {
     } else {
       this.playerSprite = this.drawFallbackCreature(PLAYER_X, PLAYER_Y, PLAYER_SPRITE_SIZE, creature)
     }
+    tagArt(this.playerSprite, creature)
 
     // Shadow
     this.drawShadow(this.playerShadow, PLAYER_X, PLAYER_Y + PLAYER_SPRITE_SIZE * 0.15, PLAYER_SPRITE_SIZE, colors.accent)
@@ -237,10 +242,8 @@ export class BattleScene extends Phaser.Scene {
   }
 
   drawEnemyCreature() {
-    if (this.enemySprite) {
-      this.enemySprite.destroy()
-      this.enemySprite = null
-    }
+    this.releaseSprite(this.enemySprite)
+    this.enemySprite = null
 
     const creature = this.getAiCreature()
     if (!creature || creature.fainted) return
@@ -257,6 +260,7 @@ export class BattleScene extends Phaser.Scene {
     } else {
       this.enemySprite = this.drawFallbackCreature(ENEMY_X, ENEMY_Y, ENEMY_SPRITE_SIZE, creature)
     }
+    tagArt(this.enemySprite, creature)
 
     // Shadow
     this.drawShadow(this.enemyShadow, ENEMY_X, ENEMY_Y + ENEMY_SPRITE_SIZE * 0.1, ENEMY_SPRITE_SIZE, colors.accent)
@@ -541,8 +545,10 @@ export class BattleScene extends Phaser.Scene {
                 duration: 200,
                 ease: 'Power2',
                 onComplete: () => {
-                  if (hasAttackSprite && sprite.setTexture && this.textures.exists(idleKey)) {
+                  const stillThere = (isPlayer ? this.playerSprite : this.enemySprite) === sprite
+                  if (stillThere && hasAttackSprite && sprite.setTexture && this.textures.exists(idleKey)) {
                     sprite.setTexture(idleKey)
+                    tagArt(sprite, creatureObj)
                   }
                   delay(100)
                 },
@@ -698,13 +704,10 @@ export class BattleScene extends Phaser.Scene {
         }
 
         const doSwitch = () => {
-          if (isPlayer) {
-            this.playerActiveIdx = event.data.newIndex
-            this.drawPlayerCreature()
-          } else {
-            this.aiActiveIdx = event.data.newIndex
-            this.drawEnemyCreature()
-          }
+          if (isPlayer) this.playerActiveIdx = indexAfterSwitch(event, 'player', this.playerActiveIdx)
+          else this.aiActiveIdx = indexAfterSwitch(event, 'ai', this.aiActiveIdx)
+          if (isPlayer) this.drawPlayerCreature()
+          else this.drawEnemyCreature()
           this.updateInfoPanels()
 
           const newSprite = isPlayer ? this.playerSprite : this.enemySprite
@@ -741,7 +744,7 @@ export class BattleScene extends Phaser.Scene {
           break // onDone will be called by the panel's selection handler
         }
         if (isPlayer && event.data.newIndex != null) {
-          this.playerActiveIdx = event.data.newIndex
+          this.playerActiveIdx = indexAfterSwitch(event, 'player', this.playerActiveIdx)
           this.addLogLine(`Go, ${event.data.toName}!`)
           this.drawPlayerCreature()
           this.updateInfoPanels()
@@ -749,7 +752,7 @@ export class BattleScene extends Phaser.Scene {
           break
         }
         if (!isPlayer && event.data.newIndex !== null) {
-          this.aiActiveIdx = event.data.newIndex
+          this.aiActiveIdx = indexAfterSwitch(event, 'ai', this.aiActiveIdx)
           this.addLogLine(`Enemy sends out ${event.data.toName}!`)
           this.drawEnemyCreature()
           this.updateInfoPanels()
@@ -875,16 +878,26 @@ export class BattleScene extends Phaser.Scene {
 
   // ===================== TURN PROCESSING =====================
 
+  presentActiveCreatures() {
+    const player = this.getPlayerCreature()
+    const enemy = this.getAiCreature()
+    if (shownArtId(this.playerSprite) !== artId(player) || (!!this.playerSprite && player?.fainted)) {
+      this.drawPlayerCreature()
+    }
+    if (shownArtId(this.enemySprite) !== artId(enemy) || (!!this.enemySprite && enemy?.fainted)) {
+      this.drawEnemyCreature()
+    }
+    this.updateInfoPanels()
+  }
+
   processTurnResult(result) {
     if (this.battleOver) return
 
-    // Sync AI active index for non-faint switches (these happen before attacks)
-    // Player/AI faint switches are handled by forceSwitch events during animation
-    this.aiActiveIdx = result.aiActiveIdx
-
+    // Leave both active indexes where they are. Switch events move them.
+    // Setting them now would paint the next creature's picture onto the one
+    // still named in the panel.
     this.animateEvents(result.events, () => {
-      // After all animations (including force switch selections), sync final state
-      this.updateInfoPanels()
+      this.presentActiveCreatures()
 
       if (result.battleOver) {
         this.battleOver = true

@@ -232,8 +232,6 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
             applyRemote(aiTeamRef.current, msg.foe)
             playerActiveIdxRef.current = msg.result.playerActiveIdx
             aiActiveIdxRef.current = msg.result.aiActiveIdx
-            scene.playerActiveIdx = msg.result.playerActiveIdx
-            scene.aiActiveIdx = msg.result.aiActiveIdx
             scene.isAnimating = true
             scene.processTurnResult(msg.result)
           },
