@@ -51,6 +51,20 @@ export function createBattleCreature(saveState, creaturesLookup) {
  * Determine turn order based on speed. Higher speed goes first.
  * Returns 'player' or 'ai'.
  */
+/**
+ * Odds of leaving a wild battle. Equal speed is about 7 in 10.
+ * A faster or higher-level creature gets a better chance.
+ * The fourth try always works.
+ */
+export function runChance({ playerSpeed = 1, foeSpeed = 1, playerLevel = 1, foeLevel = 1, tries = 0 } = {}) {
+  if (tries >= 3) return 1
+  const ratio = playerSpeed / Math.max(1, foeSpeed)
+  const speedEdge = Math.min(0.18, Math.max(-0.15, (ratio - 1) * 0.25))
+  const levelEdge = (playerLevel - foeLevel) / 40
+  const chance = 0.7 + speedEdge + levelEdge + tries * 0.08
+  return Math.max(0.4, Math.min(0.95, chance))
+}
+
 export function determineTurnOrder(playerCreature, aiCreature) {
   const playerSpd = battleSpeed(playerCreature) || getEffectiveStat(playerCreature, 'spd')
   const aiSpd = battleSpeed(aiCreature) || getEffectiveStat(aiCreature, 'spd')
@@ -453,6 +467,41 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
     if (idx >= 0) aiItems.splice(idx, 1)
   }
 
+  let fled = false
+  if (playerAction.type === 'run') {
+    const tries = playerAction.tries || 0
+    const allowed = !!aiConfig?.wild
+    const chance = allowed ? runChance({
+      playerSpeed: getEffectiveStat(playerCreature, 'spd'),
+      foeSpeed: getEffectiveStat(aiCreature, 'spd'),
+      playerLevel: playerCreature.level,
+      foeLevel: aiCreature.level,
+      tries,
+    }) : 0
+    const roll = typeof playerAction.rng === 'function' ? playerAction.rng() : Math.random()
+    if (allowed && roll < chance) {
+      events.push({ type: 'run', data: { escaped: true, text: 'You got away safely!' } })
+      return {
+        events,
+        playerActiveIdx: newPlayerIdx,
+        aiActiveIdx: newAiIdx,
+        battleOver: true,
+        winner: null,
+        fled: true,
+        cooldowns: { player: playerCooldown, ai: aiCooldown },
+        caught: null,
+      }
+    }
+    events.push({
+      type: 'run',
+      data: {
+        escaped: false,
+        text: allowed ? 'Could not get away!' : 'You cannot run from this battle!',
+      },
+    })
+    fled = false
+  }
+
   const playerAttacking = playerAction.type === 'attack'
   const aiAttacking = aiAction.type === 'attack' && !caught
 
@@ -520,6 +569,7 @@ export function executeTurn(playerAction, playerTeam, playerActiveIdx, aiTeam, a
     winner: null,
     cooldowns: { player: playerCooldown, ai: aiCooldown },
     caught,
+    fled,
   }
 
   // Check for faints and battle end

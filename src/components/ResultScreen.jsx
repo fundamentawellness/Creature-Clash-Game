@@ -28,6 +28,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
   const [coinsNote, setCoinsNote] = useState(0)
 
   const won = result?.won
+  const fled = !!result?.fled
   const allCreatures = getAllCreatures(gameState)
 
   useEffect(() => {
@@ -307,7 +308,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
         <h2 className={`font-game text-5xl md:text-7xl font-black tracking-wider ${
           won ? 'text-transparent bg-clip-text bg-gradient-to-b from-amber-300 to-orange-500' : 'text-red-500'
         }`}>
-          {won ? 'VICTORY' : 'DEFEAT'}
+          {fled ? 'GOT AWAY' : won ? 'VICTORY' : 'DEFEAT'}
         </h2>
         <p className="font-ui text-sm text-slate-500 mt-1">{getBattleLabel()}</p>
       </div>
@@ -342,7 +343,7 @@ export default function ResultScreen({ result, gameState, selectedTeam, battleIn
                         +{cr.xpGain || 0} XP{cr.evolvedTo ? ` · grew into ${cr.evolvedTo}!` : ''}
                       </p>
                     ) : (
-                      <p className="font-ui text-xs text-slate-500">No XP from defeat</p>
+                      <p className="font-ui text-xs text-slate-500">{fled ? 'Back to the path, still scuffed.' : 'No XP from defeat'}</p>
                     )}
                   </div>
                 </div>

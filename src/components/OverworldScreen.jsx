@@ -6,7 +6,7 @@ import { SHOP } from '../data/islands.js'
 import { ITEMS } from '../data/items.js'
 import { buyItem } from '../systems/world.js'
 import {
-  collectItem, dotBattle, fieldTrainerBattle, grantStarters, gymDoorBattle,
+  collectItem, dotBattle, ENCOUNTER_GRACE, fieldTrainerBattle, grantStarters, gymDoorBattle,
   livingCount, rivalDoorBattle, signText, talkToPip, wakeAtClinic, wildBattleInfo,
 } from '../systems/field.js'
 import StarterPickScreen from './StarterPickScreen.jsx'
@@ -120,6 +120,7 @@ export default function OverworldScreen({ gameState, onUpdate, onBattle, onBag, 
     lock(true)
     if (person.kind === 'nurse') {
       onUpdate(prev => wakeAtClinic({ ...prev, overworld: { ...prev.overworld, x: person.x, y: person.y + 1, facing: 'up' } }))
+      sceneRef.current?.setGrace(ENCOUNTER_GRACE)
       setLines({ name: person.name, queue: ['Welcome in. Everyone is rested, and every bruise is gone.'] })
       return
     }

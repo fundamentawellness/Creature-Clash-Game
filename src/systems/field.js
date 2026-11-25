@@ -10,10 +10,16 @@ import { getGymById, getZoneById } from '../data/campaign.js'
 import { isGymUnlocked, getNextGymBattle, buildGymBattleInfo, isRivalUnlocked } from './campaignManager.js'
 import { crewForIsland, crewBattleInfo } from './story.js'
 
+// One grass or cave step in twenty starts a battle, on average.
+// That sits in the classic range of about one fight per 15 to 25 steps.
+export const ENCOUNTER_RATE = 0.05
+
+// Safe steps after a battle, a heal, or opening the map.
+export const ENCOUNTER_GRACE = 7
+
 export const WILD_TABLES = {
   route: {
     name: 'Meadow Route',
-    rate: 0.16,
     table: [
       { id: 'leafyn', min: 3, max: 6, weight: 28 },
       { id: 'mossback', min: 4, max: 7, weight: 22 },
@@ -25,7 +31,6 @@ export const WILD_TABLES = {
   },
   forest: {
     name: 'Fern Forest',
-    rate: 0.15,
     table: [
       { id: 'leafyn', min: 4, max: 7, weight: 24 },
       { id: 'mossback', min: 5, max: 8, weight: 22 },
@@ -37,7 +42,6 @@ export const WILD_TABLES = {
   },
   beach: {
     name: 'Shell Beach',
-    rate: 0.14,
     table: [
       { id: 'aquafin', min: 4, max: 7, weight: 26 },
       { id: 'shellguard', min: 5, max: 8, weight: 20 },
@@ -48,7 +52,6 @@ export const WILD_TABLES = {
   },
   cave: {
     name: 'Pebble Cave',
-    rate: 0.2,
     table: [
       { id: 'pebblit', min: 5, max: 8, weight: 26 },
       { id: 'bouldar', min: 6, max: 9, weight: 20 },
@@ -120,7 +123,7 @@ export function grantStarters(state, ids) {
 export function rollFromTable(zoneId, rng = Math.random) {
   const zone = WILD_TABLES[zoneId]
   if (!zone) return null
-  if (rng() > zone.rate) return null
+  if (rng() > ENCOUNTER_RATE) return null
   const total = zone.table.reduce((sum, entry) => sum + entry.weight, 0)
   let cursor = rng() * total
   let chosen = zone.table[0]
@@ -147,6 +150,17 @@ export function rollEncounter(tile, rng = Math.random) {
   const zoneId = ENCOUNTER_TILES[tile]
   if (!zoneId) return null
   return rollFromTable(zoneId, rng)
+}
+
+/**
+ * One check per completed step onto a tile. Standing still and walking into
+ * a wall never call this. Grace steps, including the first steps after a
+ * fight, skip the roll even in grass.
+ */
+export function encounterOnStep({ tile, moved, grace = 0, rng = Math.random }) {
+  if (!moved) return { encounter: null, grace }
+  if (grace > 0) return { encounter: null, grace: grace - 1 }
+  return { encounter: rollEncounter(tile, rng), grace: 0 }
 }
 
 export function wildBattleInfo(roll) {
