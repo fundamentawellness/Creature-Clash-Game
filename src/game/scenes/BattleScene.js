@@ -823,9 +823,11 @@ export class BattleScene extends Phaser.Scene {
       case 'statusHurt':
       case 'endure':
       case 'item':
+      case 'run':
       case 'catch': {
         if (event.type === 'status' || event.type === 'statusBlock' || event.type === 'statusHurt') playCue('status')
         if (event.type === 'catch') playCue(event.data.caught ? 'catch' : 'miss')
+        if (event.type === 'run') playCue(event.data.escaped ? 'level' : 'miss')
         const text = event.data.text || event.data.label || ''
         if (text) this.addLogLine(text)
         if (event.type === 'statusHurt' || event.type === 'item') {
@@ -904,6 +906,7 @@ export class BattleScene extends Phaser.Scene {
         setTimeout(() => {
           this.onBattleEnd({
             won: result.winner === 'player',
+            fled: !!result.fled,
             caught: result.caught || null,
             party: (this.playerTeam || []).map(creature => ({
               id: creature.id,

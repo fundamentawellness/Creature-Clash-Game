@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import { GREENRIDGE, MAP_W, MAP_H, isSolid, tileAt, trainerSees } from '../../data/greenridgeMap.js'
-import { rollEncounter } from '../../systems/field.js'
+import { ENCOUNTER_GRACE, encounterOnStep } from '../../systems/field.js'
 import { paintTiles, tileKey, heroKey } from '../tileset.js'
 
 const TILE = 16
@@ -16,7 +16,9 @@ export class OverworldScene extends Phaser.Scene {
     this.ty = data.y
     this.facing = data.facing || 'down'
     this.busy = !!data.locked
-    this.calm = data.calm ? 2 : 0
+    // Fresh map, a heal, or the walk back from a battle. Not checked until a real step.
+    this.grace = ENCOUNTER_GRACE
+    this.lastStepKey = `${this.tx},${this.ty}`
     this.stick = { x: 0, y: 0 }
     this.people = data.people || []
     this.items = data.items || []
@@ -97,6 +99,10 @@ export class OverworldScene extends Phaser.Scene {
     this.living = count
   }
 
+  setGrace(steps = ENCOUNTER_GRACE) {
+    this.grace = steps
+  }
+
   hideItem(id) {
     this.itemSprites[id]?.destroy()
     delete this.itemSprites[id]
@@ -157,6 +163,8 @@ export class OverworldScene extends Phaser.Scene {
   }
 
   update() {
+    // Held keys and the D-pad only change a tile after the previous step finishes.
+    // Bumping a wall or standing still never rolls an encounter.
     if (this.busy || this.moving) return
     const move = this.readMove()
     if (!move) return
@@ -165,6 +173,7 @@ export class OverworldScene extends Phaser.Scene {
     const nx = this.tx + (move.x || 0)
     const ny = this.ty + (move.y || 0)
     if (move.x === 0 && move.y === 0) return
+    if (nx === this.tx && ny === this.ty) return
     if (this.blocked(nx, ny)) return
     this.stepTo(nx, ny)
   }
@@ -186,13 +195,12 @@ export class OverworldScene extends Phaser.Scene {
   }
 
   afterStep() {
+    const key = `${this.tx},${this.ty}`
+    if (key === this.lastStepKey) return
+    this.lastStepKey = key
     this.onPosition({ x: this.tx, y: this.ty, facing: this.facing })
     const found = this.itemAt(this.tx, this.ty)
     if (found) this.takeItem(found)
-    if (this.calm > 0) {
-      this.calm -= 1
-      return
-    }
     if (this.living <= 0) {
       this.onWiped()
       return
@@ -204,8 +212,13 @@ export class OverworldScene extends Phaser.Scene {
       this.approach(trainer)
       return
     }
-    const roll = rollEncounter(tileAt(this.tx, this.ty))
-    if (roll) this.startWild(roll)
+    const step = encounterOnStep({
+      tile: tileAt(this.tx, this.ty),
+      moved: true,
+      grace: this.grace,
+    })
+    this.grace = step.grace
+    if (step.encounter) this.startWild(step.encounter)
   }
 
   takeItem(item) {

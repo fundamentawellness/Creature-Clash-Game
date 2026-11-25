@@ -30,6 +30,7 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
   const playerActiveIdxRef = useRef(0)
   const aiActiveIdxRef = useRef(0)
   const cooldownsRef = useRef({ player: 0, ai: 0 })
+  const runTriesRef = useRef(0)
   const onBattleEndRef = useRef(onBattleEnd)
   const aiConfigRef = useRef(battleInfo?.aiConfig || { optimalChance: 0.5, switchBehavior: 'never', teamBuild: 'random' })
   const typeChartRef = useRef(null)
@@ -60,7 +61,9 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
       return
     }
 
-    const turnAction = action.type === 'item' || action.type === 'catch' ? { ...action, bag: bagRef.current } : action
+    const turnAction = action.type === 'run'
+      ? { ...action, tries: runTriesRef.current }
+      : action.type === 'item' || action.type === 'catch' ? { ...action, bag: bagRef.current } : action
     const result = executeTurn(
       turnAction,
       playerTeamRef.current,
@@ -91,6 +94,7 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
       setBag(nextBag)
       onBagRef.current?.(prev => prev ? { ...prev, bag: nextBag } : prev)
     }
+    if (turnAction.type === 'run' && !result.fled) runTriesRef.current += 1
     scene.processTurnResult(result)
   }, [])
 
@@ -184,6 +188,7 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
     aiConfigRef.current = {
       ...(battleInfo.aiConfig || { optimalChance: 0.5, switchBehavior: 'never', teamBuild: 'random' }),
       items: aiItems,
+      wild: !!battleInfo.wild,
     }
     const typeChart = getFullTypeChart(gameState)
     const typeColors = getFullTypeColors(gameState)
@@ -291,6 +296,7 @@ export default function BattleContainer({ gameState, selectedTeam, battleInfo, o
           hideItems={!!link}
           onAttack={(moveId) => handlePlayerAction({ type: 'attack', moveId })}
           onCatch={(itemId) => handlePlayerAction({ type: 'catch', itemId })}
+          onRun={() => handlePlayerAction({ type: 'run' })}
           onUseItem={(itemId, targetIndex) => handlePlayerAction({ type: 'item', itemId, targetIndex })}
           onRequestSwitch={() => sceneRef.current?.showSwitchPanel()}
           onCancelSwitch={() => sceneRef.current?.cancelSwitch()}

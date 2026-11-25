@@ -9,10 +9,11 @@ globalThis.localStorage = {
 }
 
 const { getDefaultSave, loadProfiles, writeProfiles } = await import('../src/utils/saveManager.js')
-const { createBattleCreature } = await import('../src/systems/battleEngine.js')
+const { createBattleCreature, executeTurn, runChance } = await import('../src/systems/battleEngine.js')
 const { CREATURES } = await import('../src/data/creatures.js')
 const {
   grantStarters, rollFromTable, rememberParty, applyMedicine, livingCount, wakeAtClinic, WILD_TABLES,
+  ENCOUNTER_RATE, ENCOUNTER_GRACE, encounterOnStep,
 } = await import('../src/systems/field.js')
 const { STARTER_IDS, validStarterPick } = await import('../src/data/starters.js')
 const { reachableTiles, GREENRIDGE, trainerSees } = await import('../src/data/greenridgeMap.js')
@@ -41,7 +42,63 @@ for (const [zoneId, zone] of Object.entries(WILD_TABLES)) {
     rolls.add(roll.id)
   }
   assert.ok(rolls.size >= 1)
+  assert.equal(rollFromTable(zoneId, () => 0.5), null)
 }
+
+assert.equal(ENCOUNTER_RATE, 0.05)
+assert.ok(ENCOUNTER_RATE >= 1 / 25 && ENCOUNTER_RATE <= 1 / 15)
+assert.equal(ENCOUNTER_GRACE, 7)
+assert.equal(encounterOnStep({ tile: ',', moved: false, grace: 0, rng: () => 0 }).encounter, null)
+let grace = ENCOUNTER_GRACE
+for (let i = 0; i < ENCOUNTER_GRACE; i++) {
+  const step = encounterOnStep({ tile: 'c', moved: true, grace, rng: () => 0 })
+  assert.equal(step.encounter, null)
+  grace = step.grace
+}
+assert.equal(grace, 0)
+assert.ok(encounterOnStep({ tile: ',', moved: true, grace: 0, rng: () => 0 }).encounter)
+assert.equal(encounterOnStep({ tile: ',', moved: true, grace: 0, rng: () => 0.5 }).encounter, null)
+assert.equal(encounterOnStep({ tile: '+', moved: true, grace: 0, rng: () => 0 }).encounter, null)
+
+const even = runChance({ playerSpeed: 40, foeSpeed: 40, playerLevel: 5, foeLevel: 5, tries: 0 })
+const faster = runChance({ playerSpeed: 80, foeSpeed: 40, playerLevel: 8, foeLevel: 5, tries: 0 })
+assert.ok(even > 0.5 && even < 1)
+assert.ok(faster > even)
+assert.equal(runChance({ tries: 3 }), 1)
+
+const runner = createBattleCreature({ id: 'emberpaw', level: 5, currentMoves: ['scratch', 'flame_nip'] }, CREATURES)
+const wild = createBattleCreature({ id: 'mossback', level: 5, currentMoves: ['tackle', 'scratch'] }, CREATURES)
+const flee = executeTurn(
+  { type: 'run', tries: 0, rng: () => 0 },
+  [runner], 0, [wild], 0,
+  { wild: true, optimalChance: 0, switchBehavior: 'never', opponentAction: { type: 'attack', moveId: 'tackle' } },
+  { player: 0, ai: 0 },
+)
+assert.equal(flee.fled, true)
+assert.equal(flee.battleOver, true)
+assert.equal(runner.currentHp, runner.currentStats.hp)
+
+const stuck = createBattleCreature({ id: 'emberpaw', level: 5, currentMoves: ['scratch', 'flame_nip'] }, CREATURES)
+const chaser = createBattleCreature({ id: 'mossback', level: 5, currentMoves: ['tackle', 'scratch'] }, CREATURES)
+const failed = executeTurn(
+  { type: 'run', tries: 0, rng: () => 0.99 },
+  [stuck], 0, [chaser], 0,
+  { wild: true, optimalChance: 0, switchBehavior: 'never', opponentAction: { type: 'attack', moveId: 'tackle' } },
+  { player: 0, ai: 0 },
+)
+assert.equal(failed.fled, false)
+assert.ok(failed.events.some(event => event.type === 'run' && event.data.escaped === false))
+assert.ok(failed.events.some(event => event.type === 'attack' && event.data.creature === 'ai'))
+
+const trapped = executeTurn(
+  { type: 'run', tries: 3, rng: () => 0 },
+  [createBattleCreature({ id: 'emberpaw', level: 5, currentMoves: ['scratch'] }, CREATURES)], 0,
+  [createBattleCreature({ id: 'mossback', level: 5, currentMoves: ['tackle'] }, CREATURES)], 0,
+  { wild: false, optimalChance: 0, switchBehavior: 'never', opponentAction: { type: 'attack', moveId: 'tackle' } },
+  { player: 0, ai: 0 },
+)
+assert.notEqual(trapped.fled, true)
+assert.ok(trapped.events.some(event => event.type === 'run' && event.data.text.includes('cannot')))
 
 const hurt = createBattleCreature({ id: 'emberpaw', level: 5, currentMoves: CREATURES.emberpaw.movePool.slice(0, 2), currentHp: 11, status: 'burn' }, CREATURES)
 assert.equal(hurt.currentHp, 11)

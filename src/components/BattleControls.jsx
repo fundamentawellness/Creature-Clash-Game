@@ -25,6 +25,7 @@ export default function BattleControls({
   hideItems = false,
   onAttack,
   onCatch,
+  onRun,
   onUseItem,
   onRequestSwitch,
   onCancelSwitch,
@@ -90,6 +91,18 @@ export default function BattleControls({
               )
             })}
           </div>}
+          {wild && !itemPick && (
+            <button
+              type="button"
+              onClick={() => onRun?.()}
+              className="w-full min-h-12 rounded-xl font-ui text-base font-bold uppercase tracking-wider border border-slate-600 bg-slate-800 text-slate-100 cursor-pointer active:bg-slate-700"
+            >
+              Run
+            </button>
+          )}
+          {!wild && !itemPick && (
+            <p className="font-ui text-sm text-slate-400 text-center">You can't run from this battle.</p>
+          )}
           {bagEntries.length > 0 && !itemPick && !hideItems && (
             <button
               type="button"

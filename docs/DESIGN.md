@@ -159,7 +159,7 @@ Scenes live in `src/data/story.js`. A portrait is a simple face, not a new paint
 - Shell Beach, rare Torrentis
 - Pebble Cave, rare Cragmaw
 
-Tall grass and the cave can start a wild battle. Catching uses the same battle as before. When it ends, you are standing where you were.
+Tall grass and the cave can start a wild battle, about once every twenty steps. The first seven steps after a fight, a heal, or opening the map are quiet, and standing still does not count. In a wild battle you can try to run. It usually works, and the fourth try always does. If it fails, the other creature still gets a turn. You cannot run from a trainer, a gym, a rival, or a friend. Catching uses the same battle as before. When it ends, you are standing where you were, with the same HP.
 
 **People.** Rangers and hikers spot you and walk up for a battle. Nurse Nia heals the whole team. Mina sells items. Skipper Bram opens the island chart. Pip lost a lucky shell on the beach. Bring it back for potions and coins. Sparkles on the ground are pickups. Digger Dot, the gym leaders, and your rival are on the island once the story says they should be.
 
